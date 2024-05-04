@@ -6,27 +6,39 @@ library(sp)
 library(rgeos)
 library(readr)
 library(rgdal)
+library(ggplot2)
+library(plotly)
 
 shinyUI(
   navbarPage(
+    theme = bslib::bs_theme(bootswatch = "superhero"),
     "EC-SAR Cases",
-             tabPanel("Overview", 
-                      htmlOutput("overview.content")), # tabPanel Overview
-             tabPanel("Dataset",
-                      sidebarLayout(
-                        sidebarPanel(
-                          
-                          # inputting csv file
-                          fileInput('caseFile', 'Upload Case Folder',
-                                    multiple = FALSE,
-                                    accept = '.csv',
-                                    buttonLabel = 'Browse',
-                                    placeholder = 'No filed selected')
-                        ),
-                        mainPanel(
-                          dataTableOutput("dataset"))
-                      )), # tabPanel Dataset
-             tabPanel("Plotting Cases", 
+    tabPanel("Overview", htmlOutput("overview.content")), # tabPanel Overview
+    tabPanel("Dataset",
+             fluidRow(
+               sidebarLayout(
+                 sidebarPanel(
+                   fileInput('caseFile', 'Upload Case Folder', multiple = FALSE, accept = '.csv',
+                             buttonLabel = 'Browse', placeholder = 'No filed selected'),
+                   uiOutput("ColumnInfo")
+                 ), #sidebarPanel
+                 
+                 mainPanel(
+                   dataTableOutput("dataset")
+                   
+                 ) # mainPanel regress
+               ) # sidebarPanel
+             ) # fluidPage
+    ),
+    # tabPanel("Analysis",
+    #          fluidRow(
+    #            box(width = 12,
+    #                status = "info", title = "Cases Throughout The Year", solidHeader = TRUE, collapsible = TRUE, height = 100,
+    #                plotOutput("overTime")
+    #            ),
+    #          )
+    # ),
+    tabPanel("Plotting Cases", 
                       sidebarLayout(
                         sidebarPanel(
                           # prettyRadioButtons("caseDistress", "Select Nature of Distress:", 

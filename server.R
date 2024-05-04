@@ -1,7 +1,10 @@
 library(leaflet)
+library(ggplot2)
+library(plotly)
 library(shiny)
 library(shinyWidgets)
 library(sp)
+library(shinyjs)
 library(forcats)
 library(rgeos)
 library(readr)
@@ -85,6 +88,35 @@ shinyServer(function(input, output, session) {
     dataFileUpload()  # Get the dataframe
   })
   
+  output$ColumnInfo <- renderUI({
+    if (!is.null(input$caseFile)) {
+      HTML(paste("case: case number<br/>",
+                 "date: MM/DD/YYYY<br/>",
+                 "rlocation: relative location<br/>",
+                 "nod: nature of distress<br/>",
+                 "psol: primary solution<br/>",
+                 "ssol: secondary solution<br/>",
+                 "ict: initial call time<br/>"))
+    } else {
+      NULL  # Return NULL if no CSV file is loaded
+    }
+  })
+  
+  # ########################################### Analysis ############################################
+  # output$overTime <- renderPlot({
+  #   if (!is.null(input$caseFile)) {
+  #     req(caseFiles())
+  #     
+  #     # Calculate the count of cases per day
+  #     caseCount <- casePerDay(caseFiles())
+  #     
+  #     # Plot the count of cases per day over time
+  #     ggplot(caseCount, aes(x = date, y = total)) + 
+  #       geom_line() + 
+  #       geom_point() +
+  #       theme_minimal()
+  #   }
+  # })
   ################################ ECSAR Cases ########################################
   
   # code to create the interactive map

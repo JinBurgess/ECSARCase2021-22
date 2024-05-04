@@ -365,25 +365,25 @@ colorCoordiante <- function(df) {
   df <- df %>%
     mutate(psolcolors = case_when(
       psol == "Charlied" ~ "green", psol == "Dewatering" ~ "blue",
-      Primary.Solution == "Escort" ~ "purple", psol == "Firefighting" ~ "red",
+      psol == "Escort" ~ "purple", psol == "Firefighting" ~ "red",
       psol == "Freed from Aground" ~ "sienna", psol == "Fuel/Oil Transfer" ~ "black",
       psol == "In Water Rescue" ~ "cyan", psol == "Information/Advice" ~ "slateblue",
       psol == "Jump Start" ~ "yellow", psol == "Medical" ~ "mediumspringgreen",
       psol == "Other" ~ "deeppink", psol == "Parbuckling" ~ "goldenrod",
       psol == "Repaired" ~ "steelblue", psol == "Search" ~ "violet",
       psol == "Tow" ~ "tomato", psol == "Transport" ~ "midnightblue",
-      TRUE ~ "grey"))# $>$
-  #       mutate(NODcolors = case_when(
-  #      nod == "Disabled" ~ "green", nod == "Dewatering" ~ "blue",
-  #      nod == "Escort" ~ "purple", nod == "Fire" ~ "red",
-  #      nod == "Aground" ~ "sienna", nod == "Bridge Jumper" ~ "black",
-  #      nod == "Capsized" ~ "cyan", nod == "Overdue" ~ "slateblue",
-  #      nod == "Medical" ~ "yellow",
-  #      nod == "Unkown Circumstance" ~ "deeppink", nod == "Collision/Allision" ~ "goldenrod",
-  #      nod == "Flare" ~ "steelblue", nod == "No Distress (Good Intent / Hoax)" ~ "violet",
-  #      nod == "Outside SOPs" ~ "tomato", nod == "PIW" ~ "midnightblue",
-  #   TRUE ~ "grey"  # Default color for unaccounted PSolutions
-  # ))
+      TRUE ~ "grey"))%>%
+    mutate(nodcolors = case_when(
+       nod == "Disabled" ~ "green", nod == "Dewatering" ~ "blue",
+       nod == "Escort" ~ "purple", nod == "Fire" ~ "red",
+       nod == "Aground" ~ "sienna", nod == "Bridge Jumper" ~ "black",
+       nod == "Capsized" ~ "cyan", nod == "Overdue" ~ "slateblue",
+       nod == "Medical" ~ "yellow",
+       nod == "Unkown Circumstance" ~ "deeppink", nod == "Collision/Allision" ~ "goldenrod",
+       nod == "Flare" ~ "steelblue", nod == "No Distress (Good Intent / Hoax)" ~ "violet",
+       nod == "Outside SOPs" ~ "tomato", nod == "PIW" ~ "midnightblue",
+    TRUE ~ "grey"  # Default color for unaccounted PSolutions
+  ))
   return(df)
 
 }
@@ -392,7 +392,6 @@ MergeFrames = function(genFrame, coordFrame){
   #make a binded together frame
   comboFrame <-  rbind(genFrame,coordFrame)
   comboFrame <- colorCoordiante(comboFrame)
-  
   
   return(comboFrame)
 }
@@ -427,5 +426,53 @@ missingDF <- missingDF[, c(1,2,3,8, 9, 4, 5, 6, 7)]
 missingDF <- colorCoordiante(missingDF)
       # colnames(totalFrame) <- c("case", "date", "rlocation", "Latitude", "Longitude", "nod", "psol", "ssol", "ict", "psolcolor", 'nodcolor')
       # missingDF(missingDF)
+```
+
+```{r}
+library(ggplot2)
+
+caseCount <- totalFrame %>%
+  mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
+  group_by(date) %>%
+  summarise(total = n())
+```
+
+```{r}
+caseCount%>%
+  ggplot(aes(x = date, y = total))+ 
+  geom_line() + geom_point() +
+  theme_minimal()
+```
+```{r}
+startdate <- as.Date("2021-07-01")
+enddate <- as.Date("2022-08-01")
+alldates <- seq(startdate, enddate, by = "day")
+weekdays <- weekdays(alldates)
+date_weekday_df <- data.frame(Date = alldates, Weekday = weekdays)
+```
+
+```{r}
+mergeweek <- left_join(date_weekday_df, caseCount, by = c("Date" = "date"))
+```
+
+
+```{r}
+# Extract Saturdays and Sundays
+weekends <- filter(mergeweek, Weekday %in% c("Saturday", "Sunday"))
+
+p <- mergeweek %>%
+  ggplot(aes(x = Date, y = total)) + 
+  geom_line() + 
+  geom_point() +
+  theme_minimal()
+# Add vertical lines for Saturdays and Sundays
+p + geom_vline(data = weekends, aes(xintercept = as.numeric(Date)), color = "lightblue", alpha = 0.5)
+```
+seeing distribution of cases based on weekday
+
+```{r}
+weekdaydist <- mergeweek%>%
+  group_by(Weekday)%>%
+  summarise(total = sum(total, na.rm = TRUE))
 ```
 

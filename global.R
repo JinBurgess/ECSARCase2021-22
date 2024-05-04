@@ -3,6 +3,22 @@ library(dplyr)
 library(stringr)
 library(tidyverse)
 
+startdate <- as.Date("2021-07-01")
+enddate <- as.Date("2022-08-01")
+alldates <- seq(startdate, enddate, by = "day")
+weekdays <- weekdays(alldates)
+date_weekday_df <- data.frame(Date = alldates, Weekday = weekdays)
+
+casePerDay <-function(df){
+  df <- df %>%
+  mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
+  group_by(date) %>%
+  summarise(total = n())
+  
+  return(df)
+
+}
+
 dataValidation <- function(df) {
   
   # Creating data base with only cases that are accepted based on case numbering format 
