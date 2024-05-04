@@ -31,10 +31,18 @@ shinyUI(
              ) # fluidPage
     ),
     tabPanel("Analysis",
-             fluidRow(
-                 box(width = 12, status = "info", title = "Correlation Matrix", solidHeader = TRUE, collapsible = TRUE,
+             fluidPage(
+               fluidRow(
+                 box(width = 12, status = "info", title = "Cases by Day", solidHeader = TRUE, collapsible = TRUE,
                      plotOutput("overTime"))
+               ),
+               fluidRow(
+                 box(width=3, title = "Top 5 Nature of Distress", solidHeader = TRUE, collapsible = TRUE, tableOutput("box1")),
+                 box(width=3, title = "Top 5 Method of Assisting", solidHeader = TRUE, collapsible = TRUE, tableOutput("box2")),
+                 box(width=3, title = "Top 5 High Traffic Times", solidHeader = TRUE, collapsible = TRUE, tableOutput("box3")),
+                 box(width=3, title = "Case Frequency by Weekday ", solidHeader = TRUE, collapsible = TRUE, tableOutput("box4"))
                )
+             )
     ),
     tabPanel("Plotting Cases", 
                       sidebarLayout(

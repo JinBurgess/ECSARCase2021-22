@@ -211,6 +211,8 @@ abbreviate <- function(df) {
 
 abvTEst <- abbreviate(rLocationDF)
 ```
+
+
 ```{r}
 library(readr)
 library(dplyr)
@@ -443,6 +445,7 @@ caseCount%>%
   geom_line() + geom_point() +
   theme_minimal()
 ```
+
 ```{r}
 startdate <- as.Date("2021-07-01")
 enddate <- as.Date("2022-08-01")
@@ -455,24 +458,36 @@ date_weekday_df <- data.frame(Date = alldates, Weekday = weekdays)
 mergeweek <- left_join(date_weekday_df, caseCount, by = c("Date" = "date"))
 ```
 
-
-```{r}
-# Extract Saturdays and Sundays
-weekends <- filter(mergeweek, Weekday %in% c("Saturday", "Sunday"))
-
-p <- mergeweek %>%
-  ggplot(aes(x = Date, y = total)) + 
-  geom_line() + 
-  geom_point() +
-  theme_minimal()
-# Add vertical lines for Saturdays and Sundays
-p + geom_vline(data = weekends, aes(xintercept = as.numeric(Date)), color = "lightblue", alpha = 0.5)
-```
 seeing distribution of cases based on weekday
 
 ```{r}
 weekdaydist <- mergeweek%>%
   group_by(Weekday)%>%
   summarise(total = sum(total, na.rm = TRUE))
+weekdaydist
+```
+
+```{r}
+library(forcats)
+countPsol <- totalFrame%>%
+  group_by(psol)%>%
+  summarise(total = n())%>%
+  arrange(desc(total))%>%
+  head(5)
+```
+
+
+```{r}
+library(stringr)
+timeframe <- totalFrame%>%
+  filter(!is.na(ict))%>%
+  mutate(ict = substr(ict, start = 1, stop = 2))%>%
+  group_by(ict)%>%
+  summarise(total = n())%>%
+  arrange(desc(total))%>%
+  head(5)
+
+timeframe
+  
 ```
 
