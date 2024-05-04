@@ -3,6 +3,7 @@ library(ggplot2)
 library(plotly)
 library(shiny)
 library(shinyWidgets)
+library(shinydashboard)
 library(sp)
 library(shinyjs)
 library(forcats)
@@ -103,19 +104,41 @@ shinyServer(function(input, output, session) {
   })
   
   # ########################################### Analysis ############################################
+  output$overTime <- renderPlot({
+    if (!is.null(caseFiles())) {
+      # req(caseFiles())
+
+      # Calculate the count of cases per day
+      caseCount <- casePerDay(caseFiles())
+
+      # Plot the count of cases per day over time
+      ggplot(caseCount, aes(x = date, y = total)) +
+        geom_line() +
+        geom_point() +
+        theme_minimal()
+    } else {
+      plot(NULL, xlim = c(0, 1), ylim = c(0, 1), type = "n", xlab = "", ylab = "")
+      text(0.5, 0.5, "Upload a case file to see the plot", cex = 1.2)
+    }
+  })
+  
   # output$overTime <- renderPlot({
-  #   if (!is.null(input$caseFile)) {
-  #     req(caseFiles())
-  #     
-  #     # Calculate the count of cases per day
-  #     caseCount <- casePerDay(caseFiles())
-  #     
-  #     # Plot the count of cases per day over time
-  #     ggplot(caseCount, aes(x = date, y = total)) + 
-  #       geom_line() + 
-  #       geom_point() +
-  #       theme_minimal()
+  #   print(caseFiles())  # Check the value of caseFiles()
+  #   
+  #   # Check if caseFiles() is not null
+  #   if (is.null(caseFiles())) {
+  #     print("caseFiles is null")  # Print a message if caseFiles() is null
+  #     return(NULL)  # Return NULL if caseFiles() is null
   #   }
+  #   
+  #   # Calculate the count of cases per day
+  #   caseCount <- casePerDay(caseFiles())
+  #   
+  #   # Plot the count of cases per day over time
+  #   ggplot(caseCount, aes(x = date, y = total)) +
+  #     geom_line() +
+  #     geom_point() +
+  #     theme_minimal()
   # })
   ################################ ECSAR Cases ########################################
   

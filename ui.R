@@ -1,6 +1,6 @@
 library(shiny)
 library(shinyWidgets)
-# library(shinybusy)
+library(shinydashboard)
 library(leaflet)
 library(sp)
 library(rgeos)
@@ -19,7 +19,7 @@ shinyUI(
                sidebarLayout(
                  sidebarPanel(
                    fileInput('caseFile', 'Upload Case Folder', multiple = FALSE, accept = '.csv',
-                             buttonLabel = 'Browse', placeholder = 'No filed selected'),
+                             buttonLabel = 'Browse', placeholder = '2021_22.csv'),
                    uiOutput("ColumnInfo")
                  ), #sidebarPanel
                  
@@ -30,14 +30,12 @@ shinyUI(
                ) # sidebarPanel
              ) # fluidPage
     ),
-    # tabPanel("Analysis",
-    #          fluidRow(
-    #            box(width = 12,
-    #                status = "info", title = "Cases Throughout The Year", solidHeader = TRUE, collapsible = TRUE, height = 100,
-    #                plotOutput("overTime")
-    #            ),
-    #          )
-    # ),
+    tabPanel("Analysis",
+             fluidRow(
+                 box(width = 12, status = "info", title = "Correlation Matrix", solidHeader = TRUE, collapsible = TRUE,
+                     plotOutput("overTime"))
+               )
+    ),
     tabPanel("Plotting Cases", 
                       sidebarLayout(
                         sidebarPanel(

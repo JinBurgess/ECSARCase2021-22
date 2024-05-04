@@ -3,6 +3,7 @@ library(dplyr)
 library(stringr)
 library(tidyverse)
 
+
 startdate <- as.Date("2021-07-01")
 enddate <- as.Date("2022-08-01")
 alldates <- seq(startdate, enddate, by = "day")
