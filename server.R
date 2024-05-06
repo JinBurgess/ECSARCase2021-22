@@ -10,6 +10,7 @@ library(forcats)
 library(rgeos)
 library(readr)
 library(rgdal)
+library(networkD3)
 
 shinyServer(function(input, output, session) {
   caseFiles <- reactiveVal (NULL)
@@ -104,6 +105,31 @@ shinyServer(function(input, output, session) {
   })
   
   # ########################################### Analysis ############################################
+  
+  output$sangraph <- renderSankeyNetwork({
+    if(!is.null(caseFiles())) {
+      
+      links <- sankeynet(caseFiles())%>%
+        filter(!is.na(psol))
+      
+      nodes <- data.frame(name = c(as.character(links$nod), as.character(links$psol)) %>% unique())
+      # 
+      links$IDnod <- match(links$nod, nodes$name) - 1
+      links$IDsol <- match(links$psol, nodes$name) -1
+      
+      # write.csv(links, file = 'sankey.csv', row.names = FALSE)
+       sankeyNetwork(Links = links, Nodes = nodes,
+                         Source = "IDnod", Target = "IDsol",
+                         Value = "value", NodeID = "name",
+                         sinksRight=FALSE)
+       
+       
+    } else {
+      text(0.5, 0.5, "Upload a case file to see the plot", cex = 1.2)
+  
+    }
+  })
+  
   output$overTime <- renderPlot({
     if (!is.null(caseFiles())) {
 

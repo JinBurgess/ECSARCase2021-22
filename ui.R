@@ -7,11 +7,13 @@ library(rgeos)
 library(readr)
 library(rgdal)
 library(ggplot2)
+library(shinyWidgets)
 library(plotly)
+library(networkD3)
 
 shinyUI(
   navbarPage(
-    theme = bslib::bs_theme(bootswatch = "superhero"), # end theme
+    # theme = bslib::bs_theme(bootswatch = "flatly"), # end theme
     "EC-SAR Cases",
     tabPanel("Overview", htmlOutput("overview.content")), # tabPanel Overview
     tabPanel("Dataset",
@@ -30,16 +32,35 @@ shinyUI(
              ) # fluidPage
     ), # tabPanel Dataset
     tabPanel("Analysis",
-               fluidRow(
-                 box(width = 12, status = "info", title = "Cases by Day", solidHeader = TRUE, collapsible = TRUE,
-                     plotOutput("overTime"))
-               ), # 
-               fluidRow(
-                 box(width=3, title = "Top 5 Nature of Distress", solidHeader = TRUE, collapsible = TRUE, tableOutput("box1")),
-                 box(width=3, title = "Top 5 Method of Assisting", solidHeader = TRUE, collapsible = TRUE, tableOutput("box2")),
-                 box(width=3, title = "Top 5 High Traffic Times", solidHeader = TRUE, collapsible = TRUE, tableOutput("box3")),
-                 box(width=3, title = "Case Frequency by Weekday ", solidHeader = TRUE, collapsible = TRUE, tableOutput("box4"))
-               ) # fluidRow
+             fluidRow(
+               column(width = 3,
+                      actionBttn("assistancerendered", label = "Case Progression", icon("life-ring"), 
+                                color = "warning", width = "100%")
+               ),
+               column(width = 3,
+                      actionBttn("general", label = "Case Distribution", icon("magnifying-glass-chart"), 
+                                 color = "warning", width = "100%")
+               ),
+               column(width = 3,
+                      actionBttn("page3", label = "Case Diagonstics", icon("file"), 
+                                 color = "warning", width = "100%")
+               ),
+               column(width = 3,
+                      actionBttn("page4", label = "Case Outcome", icon("clipboard"), 
+                                 color = "warning", width = "100%")
+               )),
+             fluidRow(
+               box(width = 12, status = "info", title = "", solidHeader = TRUE, collapsible = TRUE,
+                   sankeyNetworkOutput("sangraph")),
+               box(width = 12, status = "info", title = "Cases by Day", solidHeader = TRUE, collapsible = TRUE,
+                   plotOutput("overTime"))
+             ),
+             fluidRow(
+               box(width=3, title = "Top 5 Nature of Distress", status = "info", solidHeader = TRUE, collapsible = TRUE, tableOutput("box1")),
+               box(width=3, title = "Top 5 Method of Assisting", solidHeader = TRUE, collapsible = TRUE, tableOutput("box2")),
+               box(width=3, title = "Top 5 High Traffic Times", solidHeader = TRUE, collapsible = TRUE, tableOutput("box3")),
+               box(width=3, title = "Case Frequency by Weekday ", solidHeader = TRUE, collapsible = TRUE, tableOutput("box4"))
+             )
     ),
     tabPanel("Plotting Cases", 
              sidebarLayout(

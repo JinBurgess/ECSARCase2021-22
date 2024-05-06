@@ -2,7 +2,7 @@ library(readr)
 library(dplyr)
 library(stringr)
 library(tidyverse)
-
+library(shiny)
 
 startdate <- as.Date("2021-07-01")
 enddate <- as.Date("2022-08-01")
@@ -19,6 +19,35 @@ casePerDay <-function(df){
   return(df)
 
 }
+
+sankeynet <- function(df) {
+  san <- df %>%
+    group_by(nod, psol) %>%
+    summarise(value = n()) %>%
+    mutate(psol = case_when(
+      psol == "Medical" ~ "Medical Assistance",
+      TRUE ~ as.character(psol)
+    ))
+
+  san2 <- df%>%
+    filter(!is.na(ssol))%>%
+    group_by(psol, ssol)%>%
+    summarise(value = n()) %>%
+    mutate(ssol = case_when(
+      ssol == "Medical" ~ "Medical Assistance",
+      ssol == "Other" ~ "Other Part 2",
+      ssol == "Tow" ~ "Second Tow",
+      TRUE ~ as.character(ssol)
+    ))%>%
+    rename(nod = psol, psol = ssol)
+
+  links <- as.data.frame(rbind(san, san2))
+  
+  write.csv(links, file = 'sankey.csv', row.names = FALSE)
+  
+  return(links)
+}
+
 
 dataValidation <- function(df) {
   
