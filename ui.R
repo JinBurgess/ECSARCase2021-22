@@ -65,6 +65,8 @@ shinyUI(
                  # text of the lat and long of mouse click
                  textOutput('uiCoord'),
 
+                 textOutput('uiLat'),
+                 textOutput('uiLong'),
                  # suppose to save the relative location name, lat and long to the dataBase of RLocationLatLon
                  actionButton("saveButton", label = "Finalize Coordinates")
                ),

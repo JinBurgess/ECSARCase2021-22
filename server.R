@@ -251,17 +251,30 @@ shinyServer(function(input, output, session) {
   
   rv_location <- reactiveValues(id = NULL, lat=NULL, lng=NULL)
 
-  output$uiCoord <- renderText({
-    location_info <- reactiveValuesToList(rv_location)
-    
-    if (!all(is.null(unlist(location_info)))) {
-      HTML(paste('latitude :', location_info$lat),'<br/>', 
-           paste('longitude:', location_info$lng))
+  # output$uiCoord <- renderText({
+  #   location_info <- reactiveValuesToList(rv_location)[1]
+  #   
+  #   if (!all(is.null(unlist(location_info)))) {
+  #     HTML(paste('latitude :', location_info$lat),'<br/>', 
+  #          paste('longitude:', location_info$lng))
+  #   } else {
+  #     "Click on the map to see geological information"  # Adjusted this line to use single string indexing
+  #   }
+  # })
+  
+  output$uiLat <- renderText({
+    if (!is.null(rv_location$lat)) {
+      HTML(paste('latitude :', rv_location$lat))
     } else {
-      "Click on the map to see geological information"  # Adjusted this line to use single string indexing
+      "Click on the map to get GPS Coordinates"  # Adjusted this line to use single string indexing
     }
   })
   
+  output$uiLong <- renderText({
+    if (!is.null(rv_location$lng)) {
+      HTML(paste('Longitude :', rv_location$lng))
+    }
+  })
   
   output$clickMap <- renderLeaflet({
     leaflet() %>%
@@ -282,39 +295,41 @@ shinyServer(function(input, output, session) {
   
   # Add logging statements
   observeEvent(input$saveButton, {
-    # Check if all required inputs are available
-    req(input$genLoc[1])
-    req(isolate(rv_location$lat))
-    req(isolate(rv_location$lng))
-    
-    # Remove the row from the missingDF because we have already found its GPS position
-    tempMissingDF <- filter(missingDF(), rlocation != input$genLoc[1])
-    
-    # Add the GPS position of the relative position to the dataBase
-    newData <- data.frame(
-      RLocation = isolate(input$genLoc[1]),
-      Latitude = isolate(rv_location$lat), 
-      Longitude = isolate(rv_location$lng)
-    )
-    dataBaseUpdated <- rbind(newData, dataBase())
-    
-    # Update the missingDF
-    write.csv(tempMissingDF, file = 'missingDF.csv', row.names = FALSE)
-    write.csv(dataBaseUpdated, 'RLocationLatLongs.csv', row.names = FALSE)
-    missingDF(tempMissingDF)
-    
-    # Update the dataframe used in the ECCase plot
-    updatedData <- dataFileUpdate()
-    
-    # Update the picker input choices
-    updatePickerInput(session, 
-                      'genLoc', 
-                      choices = if (nrow(tempMissingDF) > 0)
-                        sort(unique(tempMissingDF$rlocation)) else NULL
-    )
-    
-    # Return the updated dataBase
-    return(dataBaseUpdated)
+    if(!is.null(input$caseFile)){
+      # Check if all required inputs are available
+      req(input$genLoc[1])
+      req(isolate(rv_location$lat))
+      req(isolate(rv_location$lng))
+      
+      # Remove the row from the missingDF because we have already found its GPS position
+      tempMissingDF <- filter(missingDF(), rlocation != input$genLoc[1])
+      
+      # Add the GPS position of the relative position to the dataBase
+      newData <- data.frame(
+        RLocation = isolate(input$genLoc[1]),
+        Latitude = isolate(rv_location$lat), 
+        Longitude = isolate(rv_location$lng)
+      )
+      dataBaseUpdated <- rbind(newData, dataBase())
+      
+      # Update the missingDF
+      write.csv(tempMissingDF, file = 'missingDF.csv', row.names = FALSE)
+      write.csv(dataBaseUpdated, 'RLocationLatLongs.csv', row.names = FALSE)
+      missingDF(tempMissingDF)
+      
+      # Update the dataframe used in the ECCase plot
+      updatedData <- dataFileUpdate()
+      
+      # Update the picker input choices
+      updatePickerInput(session, 
+                        'genLoc', 
+                        choices = if (nrow(tempMissingDF) > 0)
+                          sort(unique(tempMissingDF$rlocation)) else NULL
+      )
+      
+      # Return the updated dataBase
+      return(dataBaseUpdated)
+    }
   })
   
   # Testing map to draw polygons
