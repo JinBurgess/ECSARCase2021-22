@@ -106,7 +106,6 @@ shinyServer(function(input, output, session) {
   # ########################################### Analysis ############################################
   output$overTime <- renderPlot({
     if (!is.null(caseFiles())) {
-      # req(caseFiles())
 
       # Calculate the count of cases per day
       caseCount <- casePerDay(caseFiles())
@@ -116,8 +115,9 @@ shinyServer(function(input, output, session) {
         geom_line() +
         geom_point() +
         theme_minimal()
+
+        
     } else {
-      plot(NULL, xlim = c(0, 1), ylim = c(0, 1), type = "n", xlab = "", ylab = "")
       text(0.5, 0.5, "Upload a case file to see the plot", cex = 1.2)
     }
   })
@@ -228,7 +228,7 @@ shinyServer(function(input, output, session) {
         addScaleBar() %>%
         setView(lng = -82.6,
                 lat = 27.7,
-                zoom = 9.4)
+                zoom = 9.5)
     }
     
   })
@@ -282,8 +282,6 @@ shinyServer(function(input, output, session) {
   
   # Add logging statements
   observeEvent(input$saveButton, {
-    print("Save button clicked")
-    
     # Check if all required inputs are available
     req(input$genLoc[1])
     req(isolate(rv_location$lat))
@@ -317,5 +315,24 @@ shinyServer(function(input, output, session) {
     
     # Return the updated dataBase
     return(dataBaseUpdated)
+  })
+  
+  # Testing map to draw polygons
+  output$polygonMap <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = -82.6, lat = 27.7, zoom = 9.5) %>%
+      addDrawToolbar(
+        targetGroup='draw',
+        editOptions = editToolbarOptions(selectedPathOptions = selectedPathOptions())) 
+  })
+  
+  observeEvent(input$map_draw_new_feature, {
+    drawnFeatures <- input$map_draw_new_feature
+    drawnFeatureType <- drawnFeatures$type
+    if (drawnFeatureType == "polygon") {
+      drawnPolygon <- leaflet:::getGeoJSON(drawnFeatures)
+      polygonCoords <- leaflet:::getLatLngs(drawnPolygon)
+    }
   })
 }) # shinyServer
