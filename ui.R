@@ -1,3 +1,4 @@
+# EC-SAR CASES UI
 library(shiny)
 library(shinyWidgets)
 library(shinydashboard)
@@ -13,9 +14,11 @@ library(networkD3)
 
 shinyUI(
   navbarPage(
-    # theme = bslib::bs_theme(bootswatch = "flatly"), # end theme
+    theme = bslib::bs_theme(bootswatch = "flatly"), # end theme
     "EC-SAR Cases",
     tabPanel("Overview", htmlOutput("overview.content")), # tabPanel Overview
+    
+    # Dataset tab ---------------------------------------------------------------------------------------------
     tabPanel("Dataset",
              fluidRow(
                sidebarLayout(
@@ -31,37 +34,45 @@ shinyUI(
                ) # sidebarPanel
              ) # fluidPage
     ), # tabPanel Dataset
+    
+    # Analysis tab ---------------------------------------------------------------------------------------------
     tabPanel("Analysis",
              fluidRow(
+               tags$head(
+                 tags$style(HTML("\
+                 .active-button {background-color: #0504aa !important; border-color: #eea236 !important; }
+                                 .reserve-button {border-color: #eea236 !important; }"))
+               ),
                column(width = 3,
                       actionBttn("assistancerendered", label = "Case Progression", icon("life-ring"), 
-                                color = "warning", width = "100%")
+                                color = "warning", style = "minimal",  width = "100%", class = "reserve-button")
                ),
                column(width = 3,
                       actionBttn("general", label = "Case Distribution", icon("magnifying-glass-chart"), 
-                                 color = "warning", width = "100%")
+                                 color = "warning", style = "minimal", width = "100%", class = "reserve-button")
                ),
                column(width = 3,
                       actionBttn("page3", label = "Case Diagonstics", icon("file"), 
-                                 color = "warning", width = "100%")
+                                 color = "warning", style = "minimal", width = "100%", class = "reserve-button")
                ),
                column(width = 3,
                       actionBttn("page4", label = "Case Outcome", icon("clipboard"), 
-                                 color = "warning", width = "100%")
+                                 color = "warning", style = "minimal", width = "100%", class = "reserve-button")
                )),
-             fluidRow(
-               box(width = 12, status = "info", title = "", solidHeader = TRUE, collapsible = TRUE,
-                   sankeyNetworkOutput("sangraph")),
-               box(width = 12, status = "info", title = "Cases by Day", solidHeader = TRUE, collapsible = TRUE,
-                   plotOutput("overTime"))
-             ),
-             fluidRow(
-               box(width=3, title = "Top 5 Nature of Distress", status = "info", solidHeader = TRUE, collapsible = TRUE, tableOutput("box1")),
-               box(width=3, title = "Top 5 Method of Assisting", solidHeader = TRUE, collapsible = TRUE, tableOutput("box2")),
-               box(width=3, title = "Top 5 High Traffic Times", solidHeader = TRUE, collapsible = TRUE, tableOutput("box3")),
-               box(width=3, title = "Case Frequency by Weekday ", solidHeader = TRUE, collapsible = TRUE, tableOutput("box4"))
-             )
+             
+             fluidRow(uiOutput("plotBox")),
+             fluidRow(uiOutput("generalBox")),
+             fluidRow(uiOutput("page3")),
+             fluidRow(uiOutput("page4"))
+      
+             # fluidRow(
+             #   box(width=3, title = "Top 5 Nature of Distress", status = "info", solidHeader = TRUE, collapsible = TRUE, tableOutput("box1")),
+             #   box(width=3, title = "Top 5 Method of Assisting", solidHeader = TRUE, collapsible = TRUE, tableOutput("box2")),
+             #   box(width=3, title = "Top 5 High Traffic Times", solidHeader = TRUE, collapsible = TRUE, tableOutput("box3")),
+             #   box(width=3, title = "Case Frequency by Weekday ", solidHeader = TRUE, collapsible = TRUE, tableOutput("box4"))
+             # )
     ),
+    # Plotting Cases tab ---------------------------------------------------------------------------------------------
     tabPanel("Plotting Cases", 
              sidebarLayout(
                sidebarPanel(
@@ -77,7 +88,9 @@ shinyUI(
                    id = "mainTabs", type = "tabs",
                    tabPanel("CaseMap", value = "tabMap", leafletOutput('ECSARCases',height = 650))
                    ))
-               )), # tabPanel Plotting Cases
+               )
+             ), # tabPanel Plotting Cases
+    # Setting GPS tab ---------------------------------------------------------------------------------------------
     tabPanel("Setting GPS Position",
              sidebarLayout(
                sidebarPanel(

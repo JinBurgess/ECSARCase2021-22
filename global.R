@@ -1,3 +1,4 @@
+# EC-SAR CASES GLOBAL
 library(readr)
 library(dplyr)
 library(stringr)
@@ -10,6 +11,7 @@ alldates <- seq(startdate, enddate, by = "day")
 weekdays <- weekdays(alldates)
 date_weekday_df <- data.frame(Date = alldates, Weekday = weekdays)
 
+# Plotting ---------------------------------------------------------------------------------------------
 casePerDay <-function(df){
   df <- df %>%
   mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
@@ -17,11 +19,12 @@ casePerDay <-function(df){
   summarise(total = n())
   
   return(df)
-
 }
 
 sankeynet <- function(df) {
   san <- df %>%
+    select(nod, psol)%>%
+    filter(!is.na(nod) & !is.na(psol))%>%
     group_by(nod, psol) %>%
     summarise(value = n()) %>%
     mutate(psol = case_when(
@@ -30,6 +33,7 @@ sankeynet <- function(df) {
     ))
 
   san2 <- df%>%
+    select(psol, ssol)%>%
     filter(!is.na(ssol))%>%
     group_by(psol, ssol)%>%
     summarise(value = n()) %>%
@@ -48,6 +52,7 @@ sankeynet <- function(df) {
   return(links)
 }
 
+# Data Cleaning ---------------------------------------------------------------------------------------------
 
 dataValidation <- function(df) {
   
@@ -224,7 +229,6 @@ MergeFrames = function(genFrame, coordFrame){
   #make a binded together frame
   comboFrame <-  rbind(genFrame,coordFrame)
   comboFrame <- colorCoordiante(comboFrame)
-  
   return(comboFrame)
 }
 
