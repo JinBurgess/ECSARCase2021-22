@@ -14,69 +14,81 @@ library(rgdal)
 library(networkD3)
 
 shinyServer(function(input, output, session) {
-  caseFiles <- reactiveVal (NULL)
-  missingDF <- reactiveVal(NULL)
-  dataBase <- reactiveVal(NULL)
-  requestList <- reactiveVal(NULL)
-  
-  shinyjs::useShinyjs()
+  # caseFiles <- reactiveVal (NULL)
+  # missingDF <- reactiveVal(NULL)
+  # dataBase <- reactiveVal(NULL)
+  # requestList <- reactiveVal(NULL)
+  # 
+  # shinyjs::useShinyjs()
   activeButton <- reactiveVal(NULL)
-
+  
   
   # DataSet ---------------------------------------------------------------------------------------------
   
   # determines if the user has uploaded any data into the system 
   dataFileUpload <- reactive({
-    if (is.null(input$caseFile)) {
-      return(NULL)
-    } else {
-      # reads in file from the input and creates heading since initial input doesn't have headers
-      fileSpec <- input$caseFile
-      caseFolderReactive <- read.csv(fileSpec$datapath, header = FALSE, sep =  ',')
-      colnames(caseFolderReactive) =  c("case", "date", "rlocation", "nod", "psol", "ssol", "ict")
-      
-      caseFolderReactive <- caseFolderReactive%>%
-        mutate(psol = case_when(
-          psol == "No Longer Needs Assistance " ~ "Charlied",
-          psol == "Agency Assist (Case Accepted) " ~ "Charlied",
-          # Add more cases as needed
-          TRUE ~ psol  # Keep other values unchanged
-        ))
-      caseFiles(caseFolderReactive)
-      return(caseFiles())  # Return the dataframe
-    }
+    viewDF <- caseFiles()%>%
+      select(-c("psolcolors", "nodcolors"))
+    return(viewDF)  # Return the dataframe
+    # }
   }) # dataFileUpload
   
   # determines if the user has uploaded any data into the system 
   dataFileUpdate <- reactive({
-    if (!is.null(input$caseFile)) {
-    # Filters the csv file and creates a merged file that contains the updated coordinates for relative locations that 
-    # can be mapped out. 
-      # reads in file from the input and creates heading since initial input doesn't have headers
-      fileSpec <- req(input$caseFile)
-      caseFolderReactive <- read.csv(fileSpec$datapath, header = FALSE, sep =  ',')
-      colnames(caseFolderReactive) = c("case", "date", "rlocation", "nod", "psol", "ssol", "ict")
+    # if (!is.null(input$caseFile)) {
+    # # Filters the csv file and creates a merged file that contains the updated coordinates for relative locations that 
+    # # can be mapped out. 
+    #   # reads in file from the input and creates heading since initial input doesn't have headers
+    #   fileSpec <- req(input$caseFile)
+    #   caseFolderReactive <- read.csv(fileSpec$datapath, header = FALSE, sep =  ',')
+    #   colnames(caseFolderReactive) = c("case", "date", "rlocation", "nod", "psol", "ssol", "ict")
+    #   
+    # conducts validation and checking of data frames
+    sortedData <- dataValidation(caseFiles()) # removes any entries that are not accepted by Pro Staff/ are not denoted in case form
+    sortedData <- splitData(sortedData) # splitting data into entries with coordinates and those with only relative coordinates
+    coordDF <- data.frame(sortedData[1])#dataframe with coordinates
+    rLocationDF <- data.frame(sortedData[2]) # dataframe relative positions
+    coordDF <- prepCoordFrame(coordDF)# reformating dataframe columns to contain Lat & Long and be same as coordDF
+    dataBase = read_csv('RLocationLatLongs.csv', col_names = TRUE) #getting dataframe with saved Lat and Longs gained from click map
+    rLocationDF <- PopulateLocationData(dataBase, rLocationDF) 
+    missingreacDF <- FindMissingLocationData(rLocationDF) # separate entries that do not still have a Lat and Long
+    dataBase <- AddLocationsToDataList(dataBase, requestList()) 
+    # creating dataframe for all entries with Lat and Long
+    totalFrame <- MergeFrames(rLocationDF, coordDF)
+    missingreacDF <- missingreacDF[, c(1,2,3,8, 9, 4, 5, 6, 7)]
+    missingreacDF <- colorCoordiante(missingreacDF)
+    missingDF(missingreacDF)
+    dataBase(dataBase)
+    caseFiles(totalFrame)
+    return(caseFiles())
+    # }
+    # return(list(totalFrame, missingDF))
+  })
+  
+  # filters the dots on the map based on what the user has selected and updates map
+  dataFilter <- reactive({
+    df <- dataFileUpdate()
+    if (nrow(df) > 0) {
+      df %>%
+        filter(nod %in% input$caseDistress)
       
-      # conducts validation and checking of data frames
-      sortedData <- dataValidation(caseFolderReactive) # removes any entries that are not accepted by Pro Staff/ are not denoted in case form
-      sortedData <- splitData(sortedData) # splitting data into entries with coordinates and those with only relative coordinates
-      coordDF <- data.frame(sortedData[1])#dataframe with coordinates
-      rLocationDF <- data.frame(sortedData[2]) # dataframe relative positions
-      coordDF <- prepCoordFrame(coordDF)# reformating dataframe columns to contain Lat & Long and be same as coordDF
-      dataBase = read_csv('RLocationLatLongs.csv', col_names = TRUE) #getting dataframe with saved Lat and Longs gained from click map
-      rLocationDF <- PopulateLocationData(dataBase, rLocationDF) 
-      missingreacDF <- FindMissingLocationData(rLocationDF) # separate entries that do not still have a Lat and Long
-      dataBase <- AddLocationsToDataList(dataBase, requestList()) 
-      # creating dataframe for all entries with Lat and Long
-      totalFrame <- MergeFrames(rLocationDF, coordDF)
-      missingreacDF <- missingreacDF[, c(1,2,3,8, 9, 4, 5, 6, 7)]
-      missingreacDF <- colorCoordiante(missingreacDF)
-      missingDF(missingreacDF)
-      dataBase(dataBase)
-      caseFiles(totalFrame)
-      return(caseFiles())
-    }
-      # return(list(totalFrame, missingDF))
+    } else {df}
+  })
+  
+  # showing imported csv file before any data wrangle was done. 
+  output$dataset <- renderDataTable({
+    req(dataFileUpload())  # Ensure dataFile is not NULL
+    dataFileUpload()  # Get the dataframe
+  },options = list(pageLength = 10))
+  
+  output$ColumnInfo <- renderUI({
+    HTML(paste("case: case number<br/>",
+               "date: MM/DD/YYYY<br/>",
+               "rlocation: relative location<br/>",
+               "nod: nature of distress<br/>",
+               "psol: primary solution<br/>",
+               "ssol: secondary solution<br/>",
+               "ict: initial call time<br/>"))
   })
   
   # filters the dots on the map based on what the user has selected and updates map
@@ -112,17 +124,19 @@ shinyServer(function(input, output, session) {
   # Analysis---------------------------------------------------------------------------------------------
   setActiveButton <- function(btn) {
     if (btn == "assistancerendered") {
+      activeButton("assistancerendered")
       shinyjs::addClass(selector = "#assistancerendered", class = "active-button")
+      shinyjs::removeClass(selector = "#general", class = "active-button")
       shinyjs::addClass(selector = "#general", class = "reserve-button")
-      shinyjs::addClass(selector = "#page3", class = "reserve-button")
       shinyjs::addClass(selector = "#page4", class = "reserve-button")
     } else if (btn == "general") {
+      activeButton("general")
       shinyjs::addClass(selector = "#general", class = "active-button")
+      shinyjs::removeClass(selector = "#assistancerendered", class = "active-button")
       shinyjs::addClass(selector = "#assistancerendered", class = "reserve-button")
-      shinyjs::addClass(selector = "#page3", class = "reserve-button")
       shinyjs::addClass(selector = "#page4", class = "reserve-button")
-    } else if (btn == "page3") {
-      shinyjs::addClass(selector = "#page3", class = "active-button")
+    } else if (btn == "stats") {
+      shinyjs::addClass(selector = "#stats", class = "active-button")
       shinyjs::addClass(selector = "#assistancerendered", class = "reserve-button")
       shinyjs::addClass(selector = "#general", class = "reserve-button")
       shinyjs::addClass(selector = "#page4", class = "reserve-button")
@@ -130,68 +144,63 @@ shinyServer(function(input, output, session) {
       shinyjs::addClass(selector = "#page4", class = "active-button")
       shinyjs::addClass(selector = "#assistancerendered", class = "reserve-button")
       shinyjs::addClass(selector = "#general", class = "reserve-button")
-      shinyjs::addClass(selector = "#page3", class = "reserve-button")
+      shinyjs::addClass(selector = "#stats", class = "reserve-button")
     }
   }
   
+  plotToShow <- reactiveVal("none")
+  
+  # Observe button clicks and update the plotToShow value
   observeEvent(input$assistancerendered, {
     setActiveButton("assistancerendered")
-    
-    if(!is.null(caseFiles())) {
-      output$sangraph <- renderSankeyNetwork({
-        links <- sankeynet(caseFiles())
-        
-        nodes <- data.frame(name = c(as.character(links$nod), as.character(links$psol)) %>% unique())
-        #
-        links$IDnod <- match(links$nod, nodes$name) - 1
-        links$IDsol <- match(links$psol, nodes$name) -1
-        
-        # write.csv(links, file = 'sankey.csv', row.names = FALSE)
-        sankeyNetwork(Links = links, Nodes = nodes,
-                      Source = "IDnod", Target = "IDsol",
-                      Value = "value", NodeID = "name",
-                      sinksRight=FALSE)
-      })
-    }
-    activeButton("assistancerendered")
   })
   
   observeEvent(input$general, {
     setActiveButton("general")
-    if(!is.null(caseFiles())){
-      output$overTime <- renderPlot({
-        if (!is.null(input$caseFile)) {
-          
-          # Calculate the count of cases per day
-          caseCount <- casePerDay(caseFiles())
-          
-          # Plot the count of cases per day over time
-          ggplot(caseCount, aes(x = date, y = total)) +
-            geom_line() +
-            geom_point() +
-            theme_minimal()
-        }
-      })
-    }
-    activeButton("general")
   })
   
-  output$plotBox <- renderUI({
-    if (activeButton() == "assistancerendered") {
-      box(
-        title = "",
-        sankeyNetworkOutput("sangraph", width = "100%",  height = 650),
-        width = 12, height = "200px"
-      )
-    } else if (activeButton() == "general") {
-      box(
-        title = "",
-        plotOutput("overTime", width = "100%", height = 650),
-        width = 12
-      )
-    } else {
-      NULL  # If neither tab is active, don't display any plot
-    }
+  # # Render the Sankey graph
+  output$sangraph <- renderSankeyNetwork({
+    links <- sankeynet(caseFiles())
+    nodes <- data.frame(name = c(as.character(links$nod), as.character(links$psol)) %>% unique())
+    links$IDnod <- match(links$nod, nodes$name) - 1
+    links$IDsol <- match(links$psol, nodes$name) - 1
+    
+    # If the overTime plot is already rendered, remove it
+    # shinyjs::disable("overTime")
+    
+    sankeyNetwork(Links = links, Nodes = nodes,
+                  Source = "IDnod", Target = "IDsol",
+                  Value = "value", NodeID = "name",
+                  sinksRight = FALSE)
+  })
+  # 
+  # # Render the overtime plot
+  output$overTime <- renderPlot({
+    # Calculate the count of cases per day
+    caseCount <- casePerDay(caseFiles())
+    
+    # If the sangraph plot is already rendered, remove it
+    shinyjs::disable("sangraph")
+    
+    # Plot the count of cases per day over time
+    ggplot(caseCount, aes(x = date, y = total)) +
+      geom_line() + geom_point() + theme_minimal()
+    
+  })
+  
+  observeEvent(c(input$assistancerendered, input$general), {
+    output$plot <- renderUI({
+      if(!is.null(activeButton())){
+        if (activeButton() == "assistancerendered") {
+          sankeyNetworkOutput("sangraph", width = "100%",  height = 650)
+        } else if (activeButton()  == "general") {
+          plotOutput("overTime", width = "100%", height = 650)
+        } 
+      }else {
+        HTML("This page will allow you to look a some Case Stats for the year 2021-2022")
+      }
+    })
   })
   
   # ECSARCases ---------------------------------------------------------------------------------------------

@@ -1,7 +1,5 @@
 "nod","psol","value"
-"","",6
 "Aground","Charlied",8
-"Aground","Declined by SC",2
 "Aground","Escort",2
 "Aground","Freed from Aground",15
 "Aground","Information/Advice",4
@@ -12,31 +10,28 @@
 "Bridge Jumper","Search",2
 "Capsized","Charlied",8
 "Capsized","Other",2
-"Capsized","Parbuckling",5
+"Capsized","Parbuckling",3
 "Capsized","Transport",1
 "Collision/Allision","Charlied",4
 "Collision/Allision","Search",1
 "Disabled","Charlied",20
-"Disabled","Declined by SC",2
 "Disabled","Escort",4
-"Disabled","Fuel/Oil Transfer",44
+"Disabled","Fuel/Oil Transfer",43
 "Disabled","Information/Advice",4
-"Disabled","Jump Start",22
+"Disabled","Jump Start",18
 "Disabled","Other",4
 "Disabled","Repaired",1
-"Disabled","Tow",87
+"Disabled","Tow",86
 "Fire","Charlied",4
 "Fire","Firefighting",1
 "Fire","Fuel/Oil Transfer",1
 "Flare","Search",1
 "Medical","Charlied",9
-"Medical","Medical Assistance",4
+"Medical","Medical Assistance",2
 "Medical","Other",1
 "Medical","Tow",1
-"No Distress (Good Intent / Hoax)","",1
 "No Distress (Good Intent / Hoax)","Charlied",5
 "Outside SOPs","Charlied",1
-"Outside SOPs","Declined by SC",1
 "Outside SOPs","Tow",1
 "Overdue","Charlied",7
 "Overdue","Escort",2
@@ -45,7 +40,6 @@
 "Overdue","Tow",3
 "Overdue","Transport",1
 "PIW","Charlied",39
-"PIW","Declined by SC",2
 "PIW","In Water Rescue",1
 "PIW","Repaired",1
 "PIW","Search",2
@@ -58,56 +52,38 @@
 "Unknown Circumstance","Tow",1
 "Weather","Escort",2
 "Weather","Transport",1
-"","",7
-"Charlied","",113
-"Charlied","Agency Assist (Case Accepted) ",2
+"Charlied","Agency Assist (Case Accepted)",2
 "Charlied","Escort",1
-"Charlied","No Longer Needs Assistance ",3
+"Charlied","No Longer Needs Assistance",3
 "Charlied","Other Part 2",2
-"Declined by SC","",6
-"Declined by SC","No Longer Needs Assistance ",1
 "Dewatering","Second Tow",4
 "Dewatering","Transport",1
-"Escort","",9
 "Escort","Second Tow",2
-"Firefighting","",1
-"Freed from Aground","",7
 "Freed from Aground","Escort",2
-"Freed from Aground","No Longer Needs Assistance ",1
+"Freed from Aground","No Longer Needs Assistance",1
 "Freed from Aground","Second Tow",4
 "Freed from Aground","Transport",1
-"Fuel/Oil Transfer","",30
 "Fuel/Oil Transfer","Escort",9
 "Fuel/Oil Transfer","Second Tow",6
-"In Water Rescue","",2
-"Information/Advice","",7
 "Information/Advice","Freed from Aground",1
-"Jump Start","",7
 "Jump Start","Escort",2
 "Jump Start","Information/Advice",1
-"Jump Start","No Longer Needs Assistance ",1
-"Jump Start","Second Tow",10
+"Jump Start","No Longer Needs Assistance",1
+"Jump Start","Second Tow",8
 "Jump Start","Transport",1
-"Medical","",2
 "Medical","Second Tow",1
 "Medical","Transport",1
-"Other","",8
 "Other","Dewatering",1
 "Other","Other Part 2",1
 "Other","Second Tow",2
-"Parbuckling","",3
 "Parbuckling","Dewatering",1
 "Parbuckling","Second Tow",1
-"Repaired","",1
 "Repaired","Information/Advice",1
-"Search","",7
-"Search","Agency Assist (Case Accepted) ",1
+"Search","Agency Assist (Case Accepted)",1
 "Search","Jump Start",1
-"Tow","",88
-"Tow","Agency Assist (Case Accepted) ",1
-"Tow","No Longer Needs Assistance ",2
+"Tow","Agency Assist (Case Accepted)",1
+"Tow","No Longer Needs Assistance",2
 "Tow","Second Tow",1
 "Tow","Transport",1
-"Transport","",6
 "Transport","Escort",1
 "Transport","Other Part 2",1

@@ -1,9 +1,22 @@
 # EC-SAR CASES GLOBAL
+
 library(readr)
 library(dplyr)
 library(stringr)
 library(tidyverse)
-library(shiny)
+library(lubridate)
+library(networkD3)
+
+caseFiles <- reactiveVal (NULL)
+missingDF <- reactiveVal(NULL)
+dataBase <- reactiveVal(NULL)
+requestList <- reactiveVal(NULL)
+# activeTab <- reactiveValues(tab = NULL)
+startDate <- reactiveVal(NULL)
+endDate <- reactiveVal(NULL)
+
+df <- read_csv("2021_22.csv", col_names = FALSE)
+colnames(df) <- c("case", "date", "rlocation", "nod", "psol", "ssol", "ict")
 
 startdate <- as.Date("2021-07-01")
 enddate <- as.Date("2022-08-01")
@@ -14,10 +27,10 @@ date_weekday_df <- data.frame(Date = alldates, Weekday = weekdays)
 # Plotting ---------------------------------------------------------------------------------------------
 casePerDay <-function(df){
   df <- df %>%
-  mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
-  group_by(date) %>%
-  summarise(total = n())
-  
+    mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
+    group_by(date) %>%
+    summarise(total = n())
+
   return(df)
 }
 
@@ -46,17 +59,17 @@ sankeynet <- function(df) {
     rename(nod = psol, psol = ssol)
 
   links <- as.data.frame(rbind(san, san2))
-  
+
   write.csv(links, file = 'sankey.csv', row.names = FALSE)
-  
+
   return(links)
 }
 
-# Data Cleaning ---------------------------------------------------------------------------------------------
+# vdata munging --------------------------------------------------
 
 dataValidation <- function(df) {
-  
-  # Creating data base with only cases that are accepted based on case numbering format 
+
+  # Creating data base with only cases that are accepted based on case numbering format
   dff <- df %>%
     subset(psol != "Declined by SC") %>%
     filter(!is.na(nod)) %>%
@@ -67,22 +80,22 @@ dataValidation <- function(df) {
       psol == 'No Longer Needs Assistance' ~ "Charlied",
       TRUE ~ psol
     ))
-  
-  # Finding cases that start with the numbering format but doesn't meet the 8 character length. 
+
+  # Finding cases that start with the numbering format but doesn't meet the 8 character length.
   # Hard code fix to find actual cases that do not meed the criteria of case numbering format
   entryCheck <- filter(df, nchar(case, allowNA = FALSE) != 8)%>%
     filter(str_detect(case, "20"),)%>%
     filter(!is.na(ict))
-  
+
   # Add the cases that may have been sifted out back into the case dataframe
   combined_df <- rbind(dff,entryCheck)
   return(combined_df)
 }
 
-splitData <- function(df) { 
+splitData <- function(df) {
   coordFrame <- df %>%
     filter(substr(rlocation, 1, 2) == "27")
-  
+
   generalFrame <- df %>%
     filter(substr(rlocation, 1, 2) != "27")
   return(list(coordFrame, generalFrame))
@@ -91,13 +104,13 @@ splitData <- function(df) {
 prepCoordFrame <- function(coordFrame){
   #make lat and long rows
   coordFrame = add_column(coordFrame, Latitude = NA, Longitude = NA, .after = "rlocation")
-  
+
   #27 49.49 N -82 49.49 W --> 27.4949 82.4949
   #iterate row by row
   for (row in 1:nrow(coordFrame)) {
     #if it is already in decimal then leave it, but otherwise it is fine
     splitRow = str_split(coordFrame[row, 3], " ")
-    
+
     if (length(splitRow[[1]]) == 2){#we are already properly formatted
       coordFrame[row,4] = splitRow[[1]][1]#lat
       coordFrame[row,5] = splitRow[[1]][2]#long
@@ -105,7 +118,7 @@ prepCoordFrame <- function(coordFrame){
       #deal with lat first
       multipliedMinutes = as.double(splitRow[[1]][2]) / 60 #do math ad make char again
       coordFrame[row,4] = as.character(as.double(splitRow[[1]][1]) + multipliedMinutes)#add multiplied minutes to 27 and put it into a string
-      
+
       #deal with long
       multipliedMinutes = as.double(splitRow[[1]][5]) / 60#do math ad make char again
       degrees = sub(".", "", splitRow[[1]][4])
@@ -114,7 +127,7 @@ prepCoordFrame <- function(coordFrame){
       coordFrame[row,5] = as.character(degrees-multipliedMinutes)#put it all back together and in long
     }
   }
-  
+
   return(coordFrame)
 }
 
@@ -122,7 +135,7 @@ PopulateLocationData = function(dataList, genFrame){
   df <- genFrame %>%
     mutate(rlocation = tolower(rlocation))%>%
     left_join(dataList, by = c("rlocation" = "RLocation"))
-  
+
   df <- df[, c(1,2,3,8,9,4,5,6,7)]
   return(df)
 }
@@ -130,26 +143,26 @@ PopulateLocationData = function(dataList, genFrame){
 FindMissingLocationData = function(df){
   returnFrame <- df %>%
     filter(is.na(Latitude))
-  
+
   return(returnFrame)
 }
 
 AddLocationsToDataList = function(dataList, requestList){
   dataList$Latitude = as.character(dataList$Latitude)
   dataList$Longitude = as.character(dataList$Longitude)
-  
+
   #iterate through requests
   new_data <- data.frame(
     RLocation = sapply(requestList, "[[", 1),
     Latitude = sapply(requestList, "[[", 2),
     Longitude = sapply(requestList, "[[", 3)
   )
-  
+
   dataList <- bind_rows(dataList, new_data)
-  
+
   #rewrite dataList with new data
   write.csv(dataList, "RLocationLatLongs.csv",row.names = FALSE)
-  
+
   #return new dataList for use
   return(dataList)
 }
@@ -157,7 +170,7 @@ AddLocationsToDataList = function(dataList, requestList){
 abbreviate <- function(df) {
   # Lowercase everything
   df[, 5] <- tolower(df[, 5])
-  
+
   # Define abbreviation rules
   abbreviation_rules <- list(
     "marker" = "mkr",
@@ -176,22 +189,22 @@ abbreviate <- function(df) {
     "intracoastal waterway" = "ICW",
     "island" = "isl"
   )
-  
+
   # Split location into words
   words <- strsplit(df[, 5], " ")
-  
+
   # Replace words with abbreviations based on rules
   words <- lapply(words, function(x) {
     abbrev <- abbreviation_rules[x]
     ifelse(is.na(abbrev), x, abbrev)
   })
-  
+
   # Collapse words back into strings
   abbreviated_locations <- sapply(words, paste, collapse = " ")
-  
+
   # Update generalFrame with abbreviated locations
   df[, 5] <- abbreviated_locations
-  
+
   return(df)
 }
 
@@ -211,16 +224,16 @@ colorCoordiante <- function(df) {
       psol == "Tow" ~ "tomato", psol == "Transport" ~ "midnightblue",
       TRUE ~ "grey"))%>%
     mutate(nodcolors = case_when(
-       nod == "Disabled" ~ "green", nod == "Dewatering" ~ "blue",
-       nod == "Escort" ~ "purple", nod == "Fire" ~ "red",
-       nod == "Aground" ~ "sienna", nod == "Bridge Jumper" ~ "black",
-       nod == "Capsized" ~ "cyan", nod == "Overdue" ~ "slateblue",
-       nod == "Medical" ~ "yellow",
-       nod == "Unkown Circumstance" ~ "deeppink", nod == "Collision/Allision" ~ "goldenrod",
-       nod == "Flare" ~ "steelblue", nod == "No Distress (Good Intent / Hoax)" ~ "violet",
-       nod == "Outside SOPs" ~ "tomato", nod == "PIW" ~ "midnightblue",
-    TRUE ~ "grey"  # Default color for unaccounted PSolutions
-  ))
+      nod == "Disabled" ~ "green", nod == "Dewatering" ~ "blue",
+      nod == "Escort" ~ "purple", nod == "Fire" ~ "red",
+      nod == "Aground" ~ "sienna", nod == "Bridge Jumper" ~ "black",
+      nod == "Capsized" ~ "cyan", nod == "Overdue" ~ "slateblue",
+      nod == "Medical" ~ "yellow",
+      nod == "Unkown Circumstance" ~ "deeppink", nod == "Collision/Allision" ~ "goldenrod",
+      nod == "Flare" ~ "steelblue", nod == "No Distress (Good Intent / Hoax)" ~ "violet",
+      nod == "Outside SOPs" ~ "tomato", nod == "PIW" ~ "midnightblue",
+      TRUE ~ "grey"  # Default color for unaccounted PSolutions
+    ))
   return(df)
 
 }
@@ -229,6 +242,7 @@ MergeFrames = function(genFrame, coordFrame){
   #make a binded together frame
   comboFrame <-  rbind(genFrame,coordFrame)
   comboFrame <- colorCoordiante(comboFrame)
+
   return(comboFrame)
 }
 
@@ -240,6 +254,25 @@ AddToRequestList = function(curRequestList, newRequest){
   else{
     curRequestList[[length(curRequestList)+1]] = newRequest
   }
-  
+
   return(curRequestList)
 }
+
+# initalization -------------------------------------------------------
+requestList = NULL
+sortedData <- dataValidation(df) # removes any entries that are not accepted bay Pro Staff/ are not denoted in case form
+sortedData <- splitData(sortedData) # splitting data into entries with coordinates and those with only relative coordinates
+coordDF <- data.frame(sortedData[1])#dataframe with coordinates
+rLocationDF <- data.frame(sortedData[2]) # dataframe relative positions
+coordDF <- prepCoordFrame(coordDF)# reformating dataframe columns to contain Lat & Long and be same as coordDF
+coordDataBase = read_csv('RLocationLatLongs.csv', col_names = TRUE) #getting dataframe with saved Lat and Longs gained from click map
+rLocationDF <- PopulateLocationData(coordDataBase, rLocationDF)
+missingreactDF <- FindMissingLocationData(rLocationDF) # separate entries that do not still have a Lat and Long
+coordDataBase <- AddLocationsToDataList(coordDataBase, requestList)
+# creating dataframe for all entries with Lat and Long
+totalFrame <- MergeFrames(rLocationDF, coordDF)
+missingreactDF <- missingreactDF[, c(1,2,3,8, 9, 4, 5, 6, 7)]
+missingreactDF <- colorCoordiante(missingreactDF)
+missingDF(missingreactDF)
+dataBase(coordDataBase)
+caseFiles(totalFrame)

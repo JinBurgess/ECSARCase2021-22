@@ -37,40 +37,32 @@ shinyUI(
     
     # Analysis tab ---------------------------------------------------------------------------------------------
     tabPanel("Analysis",
+             shinyjs::useShinyjs(),
              fluidRow(
                tags$head(
                  tags$style(HTML("\
                  .active-button {background-color: #0504aa !important; border-color: #eea236 !important; }
                                  .reserve-button {border-color: #eea236 !important; }"))
                ),
+               
                column(width = 3,
-                      actionBttn("assistancerendered", label = "Case Progression", icon("life-ring"), 
-                                color = "warning", style = "minimal",  width = "100%", class = "reserve-button")
+                      actionButton("assistancerendered", label = "Case Progression", icon("life-ring"), 
+                                   color = "warning",  style = 'minimal', width = "100%", class = "reserve-button")
                ),
                column(width = 3,
-                      actionBttn("general", label = "Case Distribution", icon("magnifying-glass-chart"), 
-                                 color = "warning", style = "minimal", width = "100%", class = "reserve-button")
+                      actionButton("general", label = "Case Distribution", icon("magnifying-glass-chart"), 
+                                   color = "warning",  style = 'minimal', width = "100%", class = "reserve-button")
                ),
                column(width = 3,
-                      actionBttn("page3", label = "Case Diagonstics", icon("file"), 
-                                 color = "warning", style = "minimal", width = "100%", class = "reserve-button")
+                      actionButton("page3", label = "Case Diagonstics", icon("file"), 
+                                   color = "warning", style = 'minimal', width = "100%", class = "reserve-button")
                ),
                column(width = 3,
-                      actionBttn("page4", label = "Case Outcome", icon("clipboard"), 
-                                 color = "warning", style = "minimal", width = "100%", class = "reserve-button")
+                      actionButton("page4", label = "Case Outcome", icon("clipboard"), 
+                                   color = "warning", style = 'minimal', width = "100%", class = "reserve-button")
                )),
              
-             fluidRow(uiOutput("plotBox")),
-             fluidRow(uiOutput("generalBox")),
-             fluidRow(uiOutput("page3")),
-             fluidRow(uiOutput("page4"))
-      
-             # fluidRow(
-             #   box(width=3, title = "Top 5 Nature of Distress", status = "info", solidHeader = TRUE, collapsible = TRUE, tableOutput("box1")),
-             #   box(width=3, title = "Top 5 Method of Assisting", solidHeader = TRUE, collapsible = TRUE, tableOutput("box2")),
-             #   box(width=3, title = "Top 5 High Traffic Times", solidHeader = TRUE, collapsible = TRUE, tableOutput("box3")),
-             #   box(width=3, title = "Case Frequency by Weekday ", solidHeader = TRUE, collapsible = TRUE, tableOutput("box4"))
-             # )
+             fluidRow(uiOutput("plot", width = "100%", height = 700))
     ),
     # Plotting Cases tab ---------------------------------------------------------------------------------------------
     tabPanel("Plotting Cases", 
