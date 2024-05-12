@@ -1,10 +1,9 @@
-# DATAVIS FINAL SERVER
+# EC-SAR CASES SERVER
 library(leaflet)
 library(ggplot2)
 library(plotly)
 library(shiny)
 library(shinyWidgets)
-library(shinydashboard)
 library(sp)
 library(shinyjs)
 library(forcats)
@@ -17,18 +16,19 @@ shinyServer(function(input, output, session) {
   # react values---------------------------------------------------------------------------------
   # caseFiles <- reactiveVal (totalFrame)
   # missingDF <- reactiveVal(missingreacDF)
-  # dataBase <- reactiveVal(dataBase)
-  # requestList <- reactiveVal(requestList)
+  filtered_data_gen <- reactiveVal(NULL)
+  caseCount <- reactiveVal(NULL)
   activeButton <- reactiveVal(NULL)
-  # startDate <- reactiveVal(NULL)
-  # endDate <- reactiveVal(NULL)
   
   # dataset ---------------------------------------------------------------------------------------------
   
   # determines if the user has uploaded any data into the system 
   dataFileUpload <- reactive({
-    caseFiles()%>%
-      select(-c("psolcolors", "nodcolors"))
+    df <- caseFiles()%>%
+      select("case", "date", "rlocation", "Latitude", "Longitude", "nod", "psol", "ssol", "ict")
+    colnames(df) <- c("Case ID", "Date", "Relative Location", "Latitude", "Longitude", "Nature of Distress", 
+                      "Primary Solution", "Secondary Solution", "Intial Call Time")
+    return(df)
   }) # dataFileUpload
   
   # determines if the user has uploaded any data into the system 
@@ -58,8 +58,22 @@ shinyServer(function(input, output, session) {
     df <- caseFiles()
     if (nrow(df)>0) {
       df %>%
-        filter(nod %in% input$caseDistress)
-      
+        mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
+        filter(nod %in% input$caseDistress)%>%
+        filter(date >= input$dates[1])%>%
+        filter(date <= input$dates[2])
+    } else {df}
+    
+  })
+  
+  dataFilterSol <- reactive({
+    df <- caseFiles()
+    if (nrow(df)>0) {
+      df %>%
+        mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
+        filter(psol %in% input$caseSolution)%>%
+        filter(date >= input$dates[1])%>%
+        filter(date <= input$dates[2])
     } else {df}
   })
   
@@ -68,16 +82,6 @@ shinyServer(function(input, output, session) {
     req(dataFileUpload())  # Ensure dataFile is not NULL
     dataFileUpload()  # Get the dataframe
   },options = list(pageLength = 10))
-  
-  output$ColumnInfo <- renderUI({
-    HTML(paste("case: case number<br/>",
-               "date: MM/DD/YYYY<br/>",
-               "rlocation: relative location<br/>",
-               "nod: nature of distress<br/>",
-               "psol: primary solution<br/>",
-               "ssol: secondary solution<br/>",
-               "ict: initial call time<br/>"))
-  })
   
   # Analysis---------------------------------------------------------------------------------------------
   setActiveButton <- function(btn) {
@@ -106,13 +110,51 @@ shinyServer(function(input, output, session) {
     }
   }
   
-  # Observe button clicks and update the plotToShow value
   observeEvent(input$assistancerendered, {
     setActiveButton("assistancerendered")
   })
   
-  observeEvent(input$general, {
+  observeEvent(c(input$general, input$datefilter), {
     setActiveButton("general")
+    
+    selected_dates <- input$datefilter
+    if (!is.null(selected_dates)) {
+      
+      # Filter data based on selected dates
+      reduced_gen <- caseFiles() %>%
+        filter(dateMonth >= selected_dates[1] & dateMonth <= selected_dates[2])
+      filtered_data_gen(reduced_gen)
+      count <- casePerDay(reduced_gen)
+      caseCount(count)
+    } else {
+      filtered_data_gen(caseFiles())
+      count <- casePerDay(caseFiles())
+      caseCount(count)
+    }
+    # Render the overtime plot
+    output$overTime <- renderPlotly({
+      # Plot the count of cases per day over time
+      plot <- ggplot(caseCount(), aes(x = date, y = total)) +
+        geom_col() +
+        scale_y_continuous(breaks = seq(0, 10, by = 1)) +
+        theme_minimal()
+      
+      ggplotly(plot)
+    })
+    
+    output$topNOD <- renderTable({
+      box1(filtered_data_gen())
+      
+    })
+    output$topPSOL <- renderTable({
+      box2(filtered_data_gen())
+    })
+    output$topTIME <- renderTable({
+      box3(filtered_data_gen())
+    })
+    output$topDAY <- renderTable({
+      box4(filtered_data_gen())
+    })
   })
   
   output$sangraph <- renderPlotly({
@@ -137,25 +179,40 @@ shinyServer(function(input, output, session) {
       )
     )
   })
-  # # Render the overtime plot
-  output$overTime <- renderPlotly({
-    # Calculate the count of cases per day
-    caseCount <- casePerDay(caseFiles())
-    
-    # Plot the count of cases per day over time
-    plot <- ggplot(caseCount, aes(x = date, y = total)) +
-      geom_col()+ theme_minimal()
-    
-    ggplotly(plot)
-    
-  })
+  
   observeEvent(c(input$assistancerendered, input$general), {
     output$plot <- renderUI({
       if (!is.null(activeButton())) {
         if (activeButton() == "assistancerendered") {
-          plotlyOutput("sangraph", width = "100%",  height = 650)
+          fluidRow(
+            column(width = 11, plotlyOutput("sangraph", width = "100%",  height = 650))
+          )
         } else if (activeButton() == "general") {
-          plotlyOutput("overTime", width = "100%", height = 650)
+          fluidRow(
+            tags$div(class = "GeneralPage",
+                     fluidRow(
+                       # Use offset to center the content
+                       column(offset = 1, width = 10,
+                              sliderTextInput(width = "100%", 
+                                              inputId = "datefilter",
+                                              label = "Choose a range:", 
+                                              force_edges = TRUE, grid = TRUE,
+                                              choices = month_labels,
+                                              selected = month_labels[c(1, 13)] # Default selection (e.g., July 2021 and August 2022)
+                              ))
+                     ),
+                     fluidRow(
+                       column(offset = 1, width = 10,
+                              plotlyOutput("overTime", width = "100%", height = 650)
+                       )),
+                     fluidRow(
+                       column(offset = 2, width = 2, tableOutput("topNOD")),
+                       column(width = 2, tableOutput("topPSOL")),
+                       column(width = 2, tableOutput("topTIME")),
+                       column(width = 2, tableOutput("topDAY"))
+                     )
+            ) # fluidRow
+          )
         }
       } else {
         HTML("This page will allow you to look at some Case Stats for the year 2021-2022")
@@ -163,49 +220,117 @@ shinyServer(function(input, output, session) {
     })
   })
   
+  
   # EC-SAR Cases---------------------------------------------------------------------------------------------
   
-  # output$selectDates <- renderPrint({input$dates})
-  # 
-  # # code to create the interactive map
-  output$ECSARCases <- renderLeaflet({
+  # code to create the interactive map
+  output$ECSARCasesDistress <- renderLeaflet({
     # When there is no loaded csv file, it shows a blank map
     if (is.null(dataFilter())) {
       leaflet() %>%
         addTiles() %>%
-        setView(lng = -82.6,
-                lat = 27.7,
-                zoom = 9.5)
+        setView(lng = -82.6, lat = 27.7, zoom = 9.5)
     } else {
-      leaflet() %>%
-        addCircleMarkers(
-          data = dataFilter(),
-          lat = ~ as.numeric(Latitude),
-          lng = ~ as.numeric(Longitude),
-          color = ~ nodcolors,
-          fillOpacity = 1.0,
-          radius = 2,
-          
-          # When the user clicks on a dot, it will give all the information about the case.
-          # This information is the same that can be seen in dataTable tab.
-          popup = paste(
-            'Case Number: ', dataFilter()$case,'<br/>',
-            'Date: ', dataFilter()$date,'<br/>',
-            'Relative Location: ', dataFilter()$rlocation,'<br/>',
-            'Nature of Distress: ', dataFilter()$nod,'<br/>',
-            'Primary Solution: ', dataFilter()$psol,'<br/>',
-            'Secondary Solution: ', dataFilter()$ssol,'<br/>',
-            'Inital Call Time: ', dataFilter()$ict)
-        ) %>%
-        addTiles() %>%
-        addScaleBar() %>%
-        setView(lng = -82.6,
-                lat = 27.7,
-                zoom = 9.5)
+      if(input$reasonFill == "Primary Solution"){
+        leaflet() %>%
+          addCircleMarkers(
+            data = dataFilter(),
+            lat = ~ as.numeric(Latitude), lng = ~ as.numeric(Longitude),
+            color = ~ psolcolors, fillOpacity = 1.0, radius = 2,
+            
+            # When the user clicks on a dot, it will give all the information about the case.
+            # This information is the same that can be seen in dataTable tab.
+            popup = paste(
+              'Case Number: ', dataFilter()$case,'<br/>',
+              'Date: ', dataFilter()$date,'<br/>',
+              'Relative Location: ', dataFilter()$rlocation,'<br/>',
+              'Nature of Distress: ', dataFilter()$nod,'<br/>',
+              'Primary Solution: ', dataFilter()$psol,'<br/>',
+              'Secondary Solution: ', dataFilter()$ssol,'<br/>',
+              'Inital Call Time: ', dataFilter()$ict)
+          ) %>%
+          addTiles() %>%
+          addScaleBar() %>%
+          setView(lng = -82.6, lat = 27.7, zoom = 9.5)
+      } else {
+        leaflet() %>%
+          addCircleMarkers(
+            data = dataFilter(),
+            lat = ~ as.numeric(Latitude), lng = ~ as.numeric(Longitude),
+            color = ~ nodcolors, fillOpacity = 1.0, radius = 2,
+            
+            # When the user clicks on a dot, it will give all the information about the case.
+            # This information is the same that can be seen in dataTable tab.
+            popup = paste(
+              'Case Number: ', dataFilter()$case,'<br/>',
+              'Date: ', dataFilter()$date,'<br/>',
+              'Relative Location: ', dataFilter()$rlocation,'<br/>',
+              'Nature of Distress: ', dataFilter()$nod,'<br/>',
+              'Primary Solution: ', dataFilter()$psol,'<br/>',
+              'Secondary Solution: ', dataFilter()$ssol,'<br/>',
+              'Inital Call Time: ', dataFilter()$ict)
+          ) %>%
+          addTiles() %>%
+          addScaleBar() %>%
+          setView(lng = -82.6, lat = 27.7, zoom = 9.5)
+      }
     }
   })
   
   
+  # code to create the interactive map
+  output$ECSARCasesSoltion <- renderLeaflet({
+    # When there is no loaded csv file, it shows a blank map
+    if (is.null(dataFilterSol())) {
+      leaflet() %>%
+        addTiles() %>%
+        setView(lng = -82.6, lat = 27.7, zoom = 9.5)
+    } else {
+      if(input$reasonFill == "Nature of Distress"){
+        leaflet() %>%
+          addCircleMarkers(
+            data = dataFilterSol(),
+            lat = ~ as.numeric(Latitude),  lng = ~ as.numeric(Longitude),
+            color = ~ nodcolors, fillOpacity = 1.0, radius = 2,
+            
+            # When the user clicks on a dot, it will give all the information about the case.
+            # This information is the same that can be seen in dataTable tab.
+            popup = paste(
+              'Case Number: ', dataFilterSol()$case,'<br/>',
+              'Date: ', dataFilterSol()$date,'<br/>',
+              'Relative Location: ', dataFilterSol()$rlocation,'<br/>',
+              'Nature of Distress: ', dataFilterSol()$nod,'<br/>',
+              'Primary Solution: ', dataFilterSol()$psol,'<br/>',
+              'Secondary Solution: ', dataFilterSol()$ssol,'<br/>',
+              'Inital Call Time: ', dataFilterSol()$ict)
+          ) %>%
+          addTiles() %>%
+          addScaleBar() %>%
+          setView(lng = -82.6, lat = 27.7, zoom = 9.5)
+      } else {
+        leaflet() %>%
+          addCircleMarkers(
+            data = dataFilterSol(),
+            lat = ~ as.numeric(Latitude), lng = ~ as.numeric(Longitude),
+            color = ~ psolcolors, fillOpacity = 1.0, radius = 2,
+            
+            # When the user clicks on a dot, it will give all the information about the case.
+            # This information is the same that can be seen in dataTable tab.
+            popup = paste(
+              'Case Number: ', dataFilterSol()$case,'<br/>',
+              'Date: ', dataFilterSol()$date,'<br/>',
+              'Relative Location: ', dataFilterSol()$rlocation,'<br/>',
+              'Nature of Distress: ', dataFilterSol()$nod,'<br/>',
+              'Primary Solution: ', dataFilterSol()$psol,'<br/>',
+              'Secondary Solution: ', dataFilterSol()$ssol,'<br/>',
+              'Inital Call Time: ', dataFilterSol()$ict)
+          ) %>%
+          addTiles() %>%
+          addScaleBar() %>%
+          setView(lng = -82.6, lat = 27.7, zoom = 9.5)
+      }
+    }
+  })
   
   # GPS ---------------------------------------------------------------------------------------------
   
