@@ -9,7 +9,6 @@ library(networkD3)
 caseFiles <- reactiveVal (NULL)
 missingDF <- reactiveVal(NULL)
 dataBase <- reactiveVal(NULL)
-requestList <- reactiveVal(NULL)
 
 
 df <- read_csv("2021_22.csv", col_names = FALSE)
@@ -355,11 +354,16 @@ rLocationDF <- PopulateLocationData(coordDataBase, rLocationDF)
 missingreactDF <- FindMissingLocationData(rLocationDF) # separate entries that do not still have a Lat and Long
 coordDataBase <- AddLocationsToDataList(coordDataBase, requestList) 
 # creating dataframe for all entries with Lat and Long
-totalFrame <- MergeFrames(rLocationDF, coordDF)%>%
+
+rLocationGPS <- rLocationDF%>%
+  filter(!is.na(Latitude))
+totalFrame <- MergeFrames(rLocationGPS, coordDF)%>%
   mutate(date = as.Date(date, format = "%m/%d/%Y"),
          dateMonth = format(date, "%Y-%m")) 
-missingreactDF <- missingreactDF[, c(1,2,3,8, 9, 4, 5, 6, 7)]
-missingreactDF <- colorCoordiante(missingreactDF)
+missingreactDF <- colorCoordiante(missingreactDF)%>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y"),
+         dateMonth = format(date, "%Y-%m")) 
 missingDF(missingreactDF)
 dataBase(coordDataBase)
 caseFiles(totalFrame)
+

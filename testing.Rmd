@@ -8,6 +8,7 @@ library(lubridate)
 df <- read_csv("2021_22.csv", col_names = FALSE)
 colnames(df) =c("case", "date", "rlocation", "nod", "psol", "ssol", "ict")
 ```
+
 ```{r}
 library(readr)
 library(dplyr)
@@ -286,6 +287,7 @@ timeframe <- totalFrame%>%
 timeframe
   
 ```
+
 ```{r}
 # completeness of ict times
 334/353
@@ -303,8 +305,7 @@ totalFrame2 <- totalFrame%>%
   summarise(total = n())%>%
   arrange(desc(total))
   
-
-waffle(totalFrame2, color = c("red", "orange", "yellow", "green", "blue", "violet", "brown", "black", "grey", "seagreen", "pink", "yellowgreen", "lightblue", "salmon", "slateblue"))
+waffle(totalFrame2, color = c("red", "orange", "yellow", "green", "blue", "violet", "brown", "black", "grey50", "seagreen", "pink", "yellowgreen", "lightblue", "salmon", "slateblue", "goldenrod"))
 
 ```
 

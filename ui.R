@@ -1,7 +1,7 @@
 # EC-SAR CASES UI
 library(shiny)
 library(shinyWidgets)
-# library(shinybusy)
+library(leaflet.extras)
 library(shinydashboard)
 library(leaflet)
 library(sp)
@@ -142,20 +142,17 @@ shinyUI(
     # Set GPS -----------------------------------------------------------------------------------------------
     tabPanel("Setting GPS Position",
              sidebarLayout(
-               sidebarPanel(
-                 uiOutput("genLocPicker"),
-                 
-                 #   # text of the lat and long of mouse click
-                 textOutput('uiCoord'),
-                 
-                 # suppose to save the relative location name, lat and long to the dataBase of RLocationLatLon
-                 actionButton("saveButton", label = "Save Coordinates")
+               mainPanel(width = 9, 
+                         leafletOutput("clickMap", height = 700)
+                         
                ),
-               
-               #  Shows the map itself
-               mainPanel(
-                 leafletOutput("clickMap", height = 650))
-             ))
+               sidebarPanel(width = 3, 
+                            uiOutput("genLocPicker"),
+                            textOutput('uiLat'),  textOutput('uiLong'),
+                            actionButton("savePoint", label = "Finalize Coordinates")
+                            
+               )
+             )
+    )
   )
 )
-

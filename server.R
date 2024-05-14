@@ -1,5 +1,6 @@
 # EC-SAR CASES SERVER
 library(leaflet)
+library(leaflet.extras)
 library(ggplot2)
 library(plotly)
 library(shiny)
@@ -19,39 +20,20 @@ shinyServer(function(input, output, session) {
   filtered_data_gen <- reactiveVal(NULL)
   caseCount <- reactiveVal(NULL)
   activeButton <- reactiveVal(NULL)
+  Lat <- reactiveVal(NULL)
+  Lng <- reactiveVal(NULL)
   
   # dataset ---------------------------------------------------------------------------------------------
   
   # determines if the user has uploaded any data into the system 
   dataFileUpload <- reactive({
+    view(missingDF())
     df <- caseFiles()%>%
       select("case", "date", "rlocation", "Latitude", "Longitude", "nod", "psol", "ssol", "ict")
     colnames(df) <- c("Case ID", "Date", "Relative Location", "Latitude", "Longitude", "Nature of Distress", 
                       "Primary Solution", "Secondary Solution", "Intial Call Time")
     return(df)
   }) # dataFileUpload
-  
-  # determines if the user has uploaded any data into the system 
-  dataFileUpdate <- reactive({
-    # conducts validation and checking of data frames
-    sortedData <- dataValidation(caseFiles()) # removes any entries that are not accepted by Pro Staff/ are not denoted in case form
-    sortedData <- splitData(sortedData) # splitting data into entries with coordinates and those with only relative coordinates
-    coordDF <- data.frame(sortedData[1])#dataframe with coordinates
-    rLocationDF <- data.frame(sortedData[2]) # dataframe relative positions
-    coordDF <- prepCoordFrame(coordDF)# reformating dataframe columns to contain Lat & Long and be same as coordDF
-    dataBase = read_csv('RLocationLatLongs.csv', col_names = TRUE) #getting dataframe with saved Lat and Longs gained from click map
-    rLocationDF <- PopulateLocationData(dataBase, rLocationDF) 
-    missingreacDF <- FindMissingLocationData(rLocationDF) # separate entries that do not still have a Lat and Long
-    dataBase <- AddLocationsToDataList(dataBase, requestList()) 
-    # creating dataframe for all entries with Lat and Long
-    totalFrame <- MergeFrames(rLocationDF, coordDF)
-    missingreacDF <- missingreacDF[, c(1,2,3,8, 9, 4, 5, 6, 7)]
-    missingreacDF <- colorCoordiante(missingreacDF)
-    missingDF(missingreacDF)
-    dataBase(dataBase)
-    caseFiles(totalFrame)
-    return(caseFiles())
-  })
   
   # filters the dots on the map based on what the user has selected and updates map
   dataFilter <- reactive({
@@ -225,10 +207,12 @@ shinyServer(function(input, output, session) {
   
   # code to create the interactive map
   output$ECSARCasesDistress <- renderLeaflet({
+    
     # When there is no loaded csv file, it shows a blank map
     if (is.null(dataFilter())) {
       leaflet() %>%
         addTiles() %>%
+        addScaleBar()%>%
         setView(lng = -82.6, lat = 27.7, zoom = 9.5)
     } else {
       if(input$reasonFill == "Primary Solution"){
@@ -284,6 +268,7 @@ shinyServer(function(input, output, session) {
     if (is.null(dataFilterSol())) {
       leaflet() %>%
         addTiles() %>%
+        addScaleBar()%>%
         setView(lng = -82.6, lat = 27.7, zoom = 9.5)
     } else {
       if(input$reasonFill == "Nature of Distress"){
@@ -333,88 +318,106 @@ shinyServer(function(input, output, session) {
   })
   
   # GPS ---------------------------------------------------------------------------------------------
-  
   # reactive values to allow for user input and changes of data
-  # output$genLocPicker <- renderUI({
-  #   if (!is.null(missingDF())) {
-  #     pickerInput(
-  #       inputId = 'genLoc',
-  #       label = "Select Entry",
-  #       choices = sort(unique(missingDF()$rlocation)),
-  #       options = list(`actions-box` = TRUE),
-  #       multiple = FALSE,
-  #       selected = unique(missingDF()$rlocation)
-  #     )
-  #   }
-  # })
-  # 
-  # rv_location <- reactiveValues(id = NULL, lat=NULL, lng=NULL)
-  # 
-  # output$uiCoord <- renderText({
-  #   location_info <- reactiveValuesToList(rv_location)
-  #   
-  #   if (!all(is.null(unlist(location_info)))) {
-  #     HTML(paste('latitude :', location_info$lat),'<br/>', 
-  #          paste('longitude:', location_info$lng))
-  #   } else {
-  #     "Click on the map to see geological information"  # Adjusted this line to use single string indexing
-  #   }
-  # })
-  # 
-  # 
-  # output$clickMap <- renderLeaflet({
-  #   leaflet() %>%
-  #     addTiles() %>%
-  #     setView(lng = -82.6, lat = 27.7, zoom = 9.5)
-  # })
-  # 
-  # # When any click happens, identify clicks on map and log new location info.
-  # observeEvent(input$clickMap_click,{
-  #   clickMap_info <- input$clickMap_click
-  #   
-  #   # Sets the Lat and long to the 3rd decimal place.
-  #     
-  #     rv_location$lat <- round(clickMap_info$lat,3)
-  #     rv_location$lng <- round(clickMap_info$lng,3)
-  #     
-  #   })
-  # 
-  # # Add logging statements
-  # observeEvent(input$saveButton, {
-  #   print("Save button clicked")
-  #   
-  #   # Check if all required inputs are available
-  #   req(input$genLoc[1])
-  #   req(isolate(rv_location$lat))
-  #   req(isolate(rv_location$lng))
-  #   
-  #   # Remove the row from the missingDF because we have already found its GPS position
-  #   tempMissingDF <- filter(missingDF(), rlocation != input$genLoc[1])
-  #   
-  #   # Add the GPS position of the relative position to the dataBase
-  #   newData <- data.frame(
-  #     RLocation = isolate(input$genLoc[1]),
-  #     Latitude = isolate(rv_location$lat), 
-  #     Longitude = isolate(rv_location$lng)
-  #   )
-  #   dataBaseUpdated <- rbind(newData, dataBase())
-  #   
-  #   # Update the missingDF
-  #   write.csv(tempMissingDF, file = 'missingDF.csv', row.names = FALSE)
-  #   write.csv(dataBaseUpdated, 'RLocationLatLongs.csv', row.names = FALSE)
-  #   missingDF(tempMissingDF)
-  #   
-  #   # Update the dataframe used in the ECCase plot
-  #   updatedData <- dataFileUpdate()
-  #   
-  #   # Update the picker input choices
-  #   updatePickerInput(session, 
-  #                     'genLoc', 
-  #                     choices = if (nrow(tempMissingDF) > 0)
-  #                       sort(unique(tempMissingDF$rlocation)) else NULL
-  #   )
-  #   
-  #   # Return the updated dataBase
-  #   return(dataBaseUpdated)
-  # })
-}) # shinyServer
+  output$genLocPicker <- renderUI({
+    if (!is.null(missingDF())) {
+      pickerInput(
+        inputId = 'genLoc',
+        label = "Select Entry",
+        choices = sort(unique(missingDF()$rlocation)),
+        options = list(`actions-box` = TRUE),
+        multiple = FALSE, 
+        selected = unique(missingDF()$rlocation)
+      )
+    }
+  })
+  
+  rv_location <- reactiveValues(id = NULL, lat=NULL, lng=NULL)
+  
+  output$uiLat <- renderText({
+    if (!is.null(rv_location$lat)) {
+      HTML(paste('latitude :', rv_location$lat))
+    } else {
+      "Click on the map to get GPS Coordinates"  # Adjusted this line to use single string indexing
+    }
+  })
+  
+  output$uiLong <- renderText({
+    if (!is.null(rv_location$lng)) {
+      HTML(paste('Longitude :', rv_location$lng))
+    }
+  })
+  
+  output$clickMap <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      addScaleBar()%>%
+      setView(lng = -82.6, lat = 27.7, zoom = 9.5)
+  })
+  
+  # When any click happens, identify clicks on map and log new location info.
+  observeEvent(input$clickMap_click,{
+    clickMap_info <- input$clickMap_click
+    
+    # Sets the Lat and long to the 3rd decimal place.
+    
+    rv_location$lat <- round(clickMap_info$lat,3)
+    rv_location$lng <- round(clickMap_info$lng,3)
+    
+    leafletProxy("clickMap") %>%
+      clearMarkers() %>%
+      addMarkers(lng = isolate(rv_location$lng), lat = isolate(rv_location$lat), 
+                 options = markerOptions(draggable = FALSE))
+    
+  })
+  
+  outputOptions(output, 'clickMap', suspendWhenHidden = FALSE)
+  
+  observe({
+    input$clickMap_marker_dragend
+    pos <- input$clickMap_marker_dragend
+    if (!is.null(pos)) {
+      rv_location$lat <- round(pos$lat, 3)
+      rv_location$lng <- round(pos$lng, 3)
+      leafletProxy("clickMap") %>%
+        updateMarkers(lng = rv_location$lng, lat = rv_location$lat,  
+                      options = markerOptions(draggable = FALSE))
+    }
+  })
+  
+  # Add logging statements
+  observeEvent(input$savePoint, {
+    
+    # Check if all required inputs are available
+    req(input$genLoc[1])
+    req(isolate(rv_location$lat))
+    req(isolate(rv_location$lng))
+    
+    # Remove the row from the missingDF because we have already found its GPS position
+    tempMissingDF <- filter(missingDF(), rlocation != input$genLoc[1])
+    newObservation <- filter(missingDF(), rlocation == input$genLoc[1])%>%
+      mutate(Latitude = isolate(rv_location$lat),
+             Longitude = isolate(rv_location$lng))
+    
+    # Add the GPS position of the relative position to the dataBase
+    newData <- data.frame(
+      RLocation = isolate(input$genLoc[1]),
+      Latitude = isolate(rv_location$lat),
+      Longitude = isolate(rv_location$lng)
+    )
+    
+    dataBaseUpdated <- rbind(newData, dataBase())
+    
+    # Update the missingDF
+    write.csv(tempMissingDF, file = 'missingDF.csv', row.names = FALSE)
+    write.csv(dataBaseUpdated, 'RLocationLatLongs.csv', row.names = FALSE)
+    
+    missingDF(tempMissingDF)
+    updatedDF <- rbind(caseFiles(), newObservation)%>%
+      arrange(date)
+    caseFiles(updatedDF)
+    
+    
+    return(dataBaseUpdated)
+  })
+})
