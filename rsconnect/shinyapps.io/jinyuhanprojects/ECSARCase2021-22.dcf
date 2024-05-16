@@ -1,0 +1,13 @@
+name: ECSARCase2021-22
+title: ECSARCase2021-22
+username: jinyuhanprojects
+account: jinyuhanprojects
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12001401
+bundleId: 8621995
+url: https://jinyuhanprojects.shinyapps.io/ECSARCase2021-22/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: testing_files/figure-html/unnamed-chunk-12-1.png|testing_files/figure-html/unnamed-chunk-13-1.png|testing_files/figure-html/unnamed-chunk-5-1.png|testing.knit.md|testing.Rmd

@@ -7,16 +7,18 @@ library(leaflet)
 library(sp)
 library(rgeos)
 library(readr)
-library(rgdal)
+# library(GDAL)
 library(ggplot2)
 library(plotly)
 library(networkD3)
 
 shinyUI(
   navbarPage(
-    # theme = bslib::bs_theme(bootswatch = "flatly"),
+    theme = bslib::bs_theme(bootswatch = "flatly"),
     "EC-SAR Cases",
-    tabPanel("Overview", htmlOutput("overview.content")), # tabPanel Overview
+    tabPanel("Overview", 
+             column(width = 10, offset = 1, htmlOutput("overview.content"))),# tabPanel Overview
+    
     # Dataset -----------------------------------------------------------------------------------------------
     tabPanel("Dataset",
              fluidRow(
@@ -32,7 +34,7 @@ shinyUI(
                               tags$p("Inital Call Time: written in military time and refers to the first time the case is called in.")
                           ),
                           circle = TRUE, status = "default",
-                          icon = icon("circle-info"), 
+                          icon = icon("circle-info"),
                           tooltip = tooltipOptions(title = "Get More Info")
                         )
                       ),
@@ -46,8 +48,8 @@ shinyUI(
              fluidRow(
                tags$head(
                  tags$style(HTML("\
-                 .active-button {color: #b23a48 !important; background-color: #acdde7  !important; border-color: #b23a48 !important; }
-                                 .reserve-button {color: #b23a48 !important; border-color: #b23a48 !important; }"))
+                 .active-button {color: #b23a48 !important; background-color: #b23a48  !important; border-color: #212d40 !important; }
+                                 .reserve-button {color: #212d40  !important; border-color:  #212d40 !important; }"))
                ),
                # b23a48 redwood
                # 212d40 prussian blue, adcce7 non phot blue
@@ -57,28 +59,30 @@ shinyUI(
                
                column(width = 3,
                       actionButton("assistancerendered", label = "Case Progression", icon("life-ring"), 
-                                   color = "warning",  width = "100%", class = "reserve-button")
+                                   color = "warning", style = "bordered", width = "100%", class = "reserve-button")
                ),
                column(width = 3,
-                      actionButton("general", label = "Case Distribution", icon("magnifying-glass-chart"), 
-                                   color = "warning",  width = "100%", class = "reserve-button")
+                      actionButton("general", label = "Case Distribution", icon("chart-simple"), 
+                                   color = "warning", style = "bordered", width = "100%", class = "reserve-button")
                ),
                column(width = 3,
-                      actionButton("page3", label = "Case Diagonstics", icon("file"), 
-                                   color = "warning", width = "100%", class = "reserve-button")
+                      actionButton("stats", label = "Response Readiness", icon("ship"), 
+                                   color = "warning", style = "bordered", width = "100%", class = "reserve-button")
                ),
                column(width = 3,
-                      actionButton("page4", label = "Case Outcome", icon("circle-info"), 
-                                   color = "warning", width = "100%", class = "reserve-button")
+                      actionButton("infopage", label = "Information", icon("circle-info"), 
+                                   color = "warning", style = "bordered",  width = "100%", class = "reserve-button")
                )),
              
-             fluidRow(uiOutput("plot", width = "100%", height = 700))
+             fluidRow(uiOutput("plot", width = "100%", height = 650))
     ),
     # Plotting -----------------------------------------------------------------------------------------------
     tabPanel("Plotting Cases", 
              sidebarLayout(
                sidebarPanel(width = 3,
-                            dateRangeInput("dates", label = "Date range", start = startDate, end = endDate),
+                            
+                            style = 'height: 715px;',
+                            dateRangeInput("dates", label = "Date range", start = ete1.startDate, end = ete2.endDate),
                             hr(),
                             fluidRow(column(3, verbatimTextOutput("dateSelector"))
                             ),
@@ -107,7 +111,7 @@ shinyUI(
                                 options = list(`actions-box` = TRUE),
                                 multiple = TRUE,
                                 selected = NULL
-                              )
+                              ), 
                             ), 
                             prettyRadioButtons(
                               inputId = "reasonFill",
@@ -116,43 +120,48 @@ shinyUI(
                               inline = TRUE, 
                               status = "danger",
                               fill = TRUE
-                            )
-               ),
+                            ),
+                            conditionalPanel(
+                              condition = "input.reasonFill == 'Nature of Distress'",
+                              div(
+                                style = "height: 300px; overflow-y: auto;",
+                                htmlOutput("nodLegend")
+                              )
+                            ),
+                            conditionalPanel(
+                              condition = "input.reasonFill == 'Primary Solution'",
+                              div(
+                                style = "height: 300px; overflow-y: auto;",
+                                htmlOutput("psolLegend")
+                              )
+                            )),
                mainPanel(width = 9,
-                         tabsetPanel(
-                           id = "mainTabs",
-                           type = "tabs",
-                           tabPanel( "Case Map", #value = "tabMap",
-                                     conditionalPanel(condition = "input.leadtoPicker == 'Nature of Distress'",
-                                                      leafletOutput('ECSARCasesDistress',height = 650)),
-                                     conditionalPanel(condition = "input.leadtoPicker == 'Primary Solution'",
-                                                      leafletOutput('ECSARCasesSoltion',height = 650))
-                           ),
-                           tabPanel("Case Summary",
-                                    conditionalPanel(condition = "input.leadtoPicker == 'Nature of Distress'",
-                                                     plotOutput('CasesDistress',height = 650)),
-                                    conditionalPanel(
-                                      condition = "input.leadtoPicker == 'Primary Solution'",
-                                      plotOutput('CasesSoltion',height = 650))
-                                    
-                           )
-                           
-                         ))
+                         div(style = "height: 715px; border: 2px solid black; padding: 5px;",
+                             conditionalPanel(condition = "input.leadtoPicker == 'Nature of Distress'",
+                                              leafletOutput('ECSARCasesDistress', height = 700)),
+                             conditionalPanel(condition = "input.leadtoPicker == 'Primary Solution'",
+                                              leafletOutput('ECSARCasesSoltion', height = 700)))
+                         
+                         
+               )
              )), # tabPanel Plotting Cases
     # Set GPS -----------------------------------------------------------------------------------------------
     tabPanel("Setting GPS Position",
              sidebarLayout(
-               mainPanel(width = 9, 
-                         leafletOutput("clickMap", height = 700)
-                         
-               ),
                sidebarPanel(width = 3, 
                             uiOutput("genLocPicker"),
                             textOutput('uiLat'),  textOutput('uiLong'),
                             actionButton("savePoint", label = "Finalize Coordinates")
                             
+               ),
+               mainPanel(width = 9, 
+                         div(style = "height: 715; border: 2px solid black; padding: 5px;",
+                             # div(style = "border: 2px solid black; padding: 5px;",
+                             leafletOutput("clickMap", height = 700))
+                         
                )
              )
     )
   )
 )
+

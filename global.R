@@ -22,23 +22,95 @@ psolselection <- df %>%
   filter(!is.na(psol)) %>%
   distinct(psol)
 
-dateLook<- df %>%
-  select(date)%>%
-  mutate(date = as.POSIXct(date, format = "%m/%d/%Y"))
 
-startDate<- min(dateLook$date)
-endDate <- max(dateLook$date)
-months <- seq(startDate, endDate, by = "month")
+
+assign_rotation <- function(df, dateDF, startDate, startingcrew, crew) {
+  
+  # Calculate number of days between the start of the crew's duty to the offest of the start of the 2021-2022 case year
+  days_to_start <- as.numeric(dateDF[1] - startDate)
+  
+  # Adjust the start index based on the number of days to start
+  startingcrew <- startingcrew - (days_to_start %% length(etecrews))
+  
+  # Add crews column starting from the calculated index
+  df$Crew <- crew[(startingcrew:(startingcrew + nrow(df) - 1)) %% length(crew) + 1]
+  return(df)
+}
+
+
+crewdf <- function(df, ecolecrew, etecrew, startdate, enddate){
+  df <- df%>%
+    filter(date>= as.Date(startdate) & date <= as.Date(enddate))
+  
+  if(etecrew == 'none'){
+    df <- df%>%
+      filter(Crew == ecolecrew)
+  }else{
+    df <- df%>%
+      filter(Crew == ecolecrew | Crew == etecrew)
+  }
+  
+  return(df)
+}
+
+caseType <- function(df){
+  df<- df%>%
+    group_by(nod, nodcolors)%>%
+    summarise(total = n())
+  
+  return(df)  
+}
+
+caseCharlied <- function(df){
+  df<- df%>%
+    mutate(psol_lmp = ifelse(psol != "Charlied", "Active", psol)) %>%
+    filter(!is.na(psol_lmp)) %>%
+    group_by(psol_lmp, psolcolors) %>%
+    summarise(total = n())%>%
+    mutate(psolcolors = ifelse(psol_lmp == "Active", "lightblue", psolcolors)) 
+  
+  return(df)  
+}
+
+df <- df %>%
+  mutate(date = as.Date(date, format = "%m/%d/%Y"))
+
+ete1.startDate<- min(df$date)
+ete1.endDate <- as.Date("2021-08-15")
+ete2.startDate<- as.Date("2022-05-20")
+ete2.endDate <- max(df$date)
+months <- seq(ete1.startDate, ete2.endDate, by = "month")
 month_labels <- format(months, "%Y-%m")
 
-alldates <- seq(startDate, endDate, by = "day")
+alldates <- seq(ete1.startDate, ete2.endDate, by = "day")
+
+ecolecrews <- c("A1","B1","C1", "A2","B2", "C2")
+etecrews <- c("port", "starboard")
+
 weekdays <- weekdays(alldates)
-date_weekday_df <- data.frame(Date = alldates, Weekday = weekdays)
+date_weekday_df <- data.frame(date = alldates, Weekday = weekdays)
+
+ecoleRotation <- date_weekday_df%>%
+  filter(date >= ete1.endDate & date <= ete2.startDate)
+
+eteRotation1 <- date_weekday_df%>%
+  filter(date < ete1.endDate) 
+
+eteRotation2 <- date_weekday_df%>%
+  filter(date > ete2.startDate)
+
+start_index_ecole <- match("C2", ecolecrews)
+start_index_ete <- match("starboard", etecrews)
+
+eteRotation1 <- assign_rotation(eteRotation1, alldates, ete1.startDate, start_index_ete, etecrews)
+eteRotation2 <- assign_rotation(eteRotation2, alldates, ete2.startDate,start_index_ete, etecrews)
+ecoleRotation <- assign_rotation(ecoleRotation, alldates, ete1.endDate, start_index_ecole, ecolecrews)
+fullrotation <- rbind(eteRotation1, ecoleRotation, eteRotation2)
 
 # Plotting ---------------------------------------------------------------------------------------------
 casePerDay <-function(df){
   df <- df %>%
-    mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
+    # mutate(date = as.POSIXct(date, format = "%m/%d/%Y")) %>%
     group_by(date) %>%
     summarise(total = n())
   
@@ -107,7 +179,7 @@ box4 <- function(df){
     group_by(date) %>%
     summarise(total = n())
   
-  mergeweek <- left_join(date_weekday_df, caseCount, by = c("Date" = "date"))
+  mergeweek <- left_join(date_weekday_df, caseCount, by =  "date")
   
   weekdaydist <- mergeweek%>%
     group_by(Weekday)%>%
@@ -298,9 +370,9 @@ colorCoordiante <- function(df) {
   #assign colors based on the PSolution
   df <- df %>%
     mutate(psolcolors = case_when(
-      psol == "Charlied" ~ "green", psol == "Dewatering" ~ "blue",
+      psol == "Charlied" ~ "black", psol == "Dewatering" ~ "blue",
       psol == "Escort" ~ "purple", psol == "Firefighting" ~ "red",
-      psol == "Freed from Aground" ~ "sienna", psol == "Fuel/Oil Transfer" ~ "black",
+      psol == "Freed from Aground" ~ "sienna", psol == "Fuel/Oil Transfer" ~ "darkgreen",
       psol == "In Water Rescue" ~ "cyan", psol == "Information/Advice" ~ "slateblue",
       psol == "Jump Start" ~ "yellow", psol == "Medical" ~ "mediumspringgreen",
       psol == "Other" ~ "deeppink", psol == "Parbuckling" ~ "goldenrod",
@@ -308,14 +380,13 @@ colorCoordiante <- function(df) {
       psol == "Tow" ~ "tomato", psol == "Transport" ~ "midnightblue",
       TRUE ~ "grey"))%>%
     mutate(nodcolors = case_when(
-      nod == "Disabled" ~ "green", nod == "Dewatering" ~ "blue",
-      nod == "Escort" ~ "purple", nod == "Fire" ~ "red",
+      nod == "Disabled" ~ "darkgreen", nod == "Taking on Water" ~ "blue",
+      nod == "Medical" ~ "mediumspringgreen", nod == "Fire" ~ "red",
       nod == "Aground" ~ "sienna", nod == "Bridge Jumper" ~ "black",
-      nod == "Capsized" ~ "cyan", nod == "Overdue" ~ "slateblue",
-      nod == "Medical" ~ "yellow",
-      nod == "Unkown Circumstance" ~ "deeppink", nod == "Collision/Allision" ~ "goldenrod",
+      nod == "PIW" ~ "cyan", nod == "Overdue" ~ "slateblue", 
+      nod == "Unknown Circumstance" ~ "deeppink", nod == "Collision/Allision" ~ "goldenrod",
       nod == "Flare" ~ "steelblue", nod == "No Distress (Good Intent / Hoax)" ~ "violet",
-      nod == "Outside SOPs" ~ "tomato", nod == "PIW" ~ "midnightblue",
+      nod == "Outside SOPs" ~ "tomato", nod == "Capsized" ~ "midnightblue",
       TRUE ~ "grey"  # Default color for unaccounted PSolutions
     ))
   return(df)
@@ -345,6 +416,7 @@ AddToRequestList = function(curRequestList, newRequest){
 # initalization -------------------------------------------------------
 requestList = NULL
 sortedData <- dataValidation(df) # removes any entries that are not accepted bay Pro Staff/ are not denoted in case form
+totalObservations <- nrow(sortedData)
 sortedData <- splitData(sortedData) # splitting data into entries with coordinates and those with only relative coordinates
 coordDF <- data.frame(sortedData[1])#dataframe with coordinates
 rLocationDF <- data.frame(sortedData[2]) # dataframe relative positions
@@ -357,13 +429,178 @@ coordDataBase <- AddLocationsToDataList(coordDataBase, requestList)
 
 rLocationGPS <- rLocationDF%>%
   filter(!is.na(Latitude))
-totalFrame <- MergeFrames(rLocationGPS, coordDF)%>%
-  mutate(date = as.Date(date, format = "%m/%d/%Y"),
-         dateMonth = format(date, "%Y-%m")) 
 missingreactDF <- colorCoordiante(missingreactDF)%>%
-  mutate(date = as.Date(date, format = "%m/%d/%Y"),
-         dateMonth = format(date, "%Y-%m")) 
+  mutate(dateMonth = format(date, "%Y-%m")) %>%
+  left_join(fullrotation, by = "date")
+totalFrame <- MergeFrames(rLocationGPS, coordDF)%>%
+  mutate(dateMonth = format(date, "%Y-%m")) %>%
+  left_join(fullrotation, by = "date")
 missingDF(missingreactDF)
 dataBase(coordDataBase)
 caseFiles(totalFrame)
 
+team_overview <- tagList(
+  tags$p(),
+  tags$p(),
+  tags$h1("Eckerd College Search and Rescue Team (ECSAR)",  style = "text-align: center; color: #b23a48;'"),
+  tags$hr(),
+  tags$h2("Education Through Leadership", style = "text-align: center; color: #80ded9;"),
+  tags$hr(),  # Horizontal line
+  tags$p("Eckerd College Search and Rescue is a year-round, 24-hour, daily, volunteer,
+        maritime aid organization almost exclusively staffed by undergraduate
+        students. No cocurricular program like this one exists at any other educational
+        institution in the U.S."),
+  tags$h2("History", style = "text-align: center; color: #80ded9;"),
+  tags$hr(),  # Horizontal line
+  tags$p("The team was founded in 1971 in an effort to provide safety services for the college’s 
+         watersports activities. In 1977, EC-SAR extended its rescue services to the Tampa Bay boating 
+         community. EC-SAR received its first test of international proportions when the team was one 
+         of the first rescue units to respond to the Skyway Bridge disaster in May of 1980. The program 
+         has since grown to become one of the most respected search and rescue organizations on the west c
+         oast of Florida."),
+  tags$h2("Membership", style = "text-align: center; color: #80ded9;"),
+  tags$hr(),  # Horizontal line
+  tags$p("EC-SAR is a group of highly determined student volunteers who commit 10 to 15 hours
+        per week to response, training and equipment upkeep. Students serve a 24-hour-duty
+        rotation every three days, participate in weekly patrols, and monitor VHF radios and
+        phones for incoming calls for assistance."),
+  tags$p("High expectations elevate the commitment level of the students, creating camaraderie and 
+        pride in performance that have earned the program its reputation of being a top-notch student development organization.
+        Participation fosters lifelong friendships and instills a commitment to volunteerism
+        that students carry forward after graduation."),
+  
+  tags$h2("Operations", style = "text-align: center; color: #80ded9;"),
+  tags$hr(),  # Horizontal line
+  tags$p("Working closely with the U.S. Coast Guard, 911 Emergency Medical Services, and other
+        state and local agencies, EC-SAR provides 24-hour maritime assistance to the boaters
+        of Tampa Bay and adjacent waterways. EC-SAR serves a 500-square-nautical-mile
+        area of response, adding to the maritime safety of Pinellas, Hillsborough and Manatee
+        counties—including 26 municipalities with resident populations totaling more than
+        2.9 million."),
+  
+  tags$h3("Training"),
+  tags$p("Student members of EC-SAR participate in a training program designed to develop
+        proficiency in a variety of skills used in maritime search and rescue. Basic and advanced
+        categories include:"),
+  tags$ul(
+    tags$li("Boating safety"),
+    tags$li("Seamanship"),
+    tags$li("Line work"),
+    tags$li("Basic life support"),
+    tags$li("In-water rescue"),
+    tags$li("Emergency rescue techniques"),
+    tags$li("Communications"),
+    tags$li("Navigation"),
+    tags$li("Boat handling"),
+    tags$li("Search planning and patterns"),
+    tags$li("Vessel and equipment maintenance"),
+    tags$li("Maritime regulations")
+  ),
+  
+  tags$h2("EC-SAR Facts", style = "text-align: center; color: #80ded9;"),
+  tags$hr(),  # Horizontal line
+  tags$h3("Current Fleet of Vessels"),
+  tags$ul(
+    tags$li("Rescue 4—2009 23-ft Century with Mercury 250-hpwr engine"),
+    tags$li("Rescue 5—2016 24-ft Robalo with twin Yamaha 150-hpwr engines"),
+    tags$li("Rescue 6—2004 26-ft Century with twin Yamaha 200-hpwr engines"),
+    tags$li("Rescue 7—2022 24-ft Robalo with twin Yamaha 200-hpwr engines")
+  ),
+  tags$h3("Area Covered"),
+  tags$p("Tampa and Boca Ciega bays (plus surrounding waters of southern Pinellas County)"),
+  tags$p("Northern boundary—John’s Pass: N 27° 46.980’"),
+  tags$p("Southern boundary—Longboat Pass: N 27° 26.655’"),
+  tags$p("Approximately 10 miles offshore into the Gulf of Mexico"),
+  
+  tags$h2("Additional Resources", style = "text-align: center; color: #80ded9;"),
+  tags$hr(),  # Horizontal line
+  tags$p("If you are ever in need of assistance", style = "text-align: center;"),
+  tags$li("Call 727.864.8256",style = "text-align: center;"),
+  tags$li("Hail EC-SAR on VHF 16/68", style = "text-align: center;"),
+  tags$p(),
+  div(
+    tags$h3("Links"),
+    style = "text-align: center;",  # Apply text-align: center; to the container
+    tags$a(href = "https://www.eckerd.edu/waterfront/ecsar/", "EC-SAR Home Page"),
+    tags$p(),
+    tags$a(href ="https://www.facebook.com/EckerdSAR/", "EC-SAR Facebook Page"),
+    tags$p(),
+    tags$a(href ="https://www.instagram.com/ecsar_ec/", "EC-SAR Instagram Page"),
+    tags$p(),
+    tags$a(href = "https://www.youtube.com/watch?v=s5y1WvBOgS8", "EC-SAR Video"),
+    tags$p(),
+    tags$hr(),
+    tags$p()
+  )
+)
+
+analysis_review <- tagList(
+  tags$p(),
+  tags$p(),
+  tags$h1("Documentation", style = "text-align: center;"),
+  tags$p(),
+  tags$h3("Case Progression", style = "text-align: center;"),
+  tags$p("EC-SAR cases are encoded in 14 unique values for nature of distress and 17 unique values for solutions. This flow make is 
+         meant to create an interactive way of looking at the differenct case type and how they were ultimately resolved. When 
+         a case's primary solution is set as `No Longer Needs Assistance` or `Case Accepted(Agency Assist)`, these categoies will be lumped 
+         into the group called Charlied. Charlied refers to cases in which no assistance was rendered."),
+  tags$hr(),
+  tags$h3("Case Distribution", style = "text-align: center;"),
+  tags$p("Eckered College Search and Rescue is a 24/7 volunteer response unit (execpt for 2.5 weeks in December for Winter Break). This window
+  will allow th user to see the case occurrences over a given time frame. For the selected timeframe, individuals will be able to determine the 
+  top 5 nature of distress, primary solutions, timeframe of case frequency, and total cases by day of the week. From this analysis, individuals 
+  will can learn possible trends of cases over the year and develop assumptions about case possibilies."),
+  tags$hr(),
+  tags$h3("Response Readiness", style = "text-align: center;"),
+  tags$p("This page looks at the minimum possible cases that a person is able to be called for give n their crew assignment during the school year
+  and their crew assignment during the summer. EC-SAR a student volunteer oganization. Each person is placed in a duty rotation of 24hr on-call and 48hrs 
+  off when school is in session.This means that you have to be ready to respond to a case within 5 minutes of being called. In the summer the on duty schedule is based on a two 
+         crews that swtich off being on-call. The response time in the summer is 10 minutes. Along with the time investment put into being on-call as 
+         well as EC-SAR training and academics, it is helpful to determine how likely you might be able to get a case. This anaylsis would be important for
+         member ratability, training, and real world experience."),
+  tags$p(),
+  tags$hr(),
+  tags$p()
+)
+
+psol_legend <- paste(
+  '<div style="background-color: white; padding: 10px; border-radius: 5px;">',
+  '<h4>Legend</h4>',
+  '<div style="margin-bottom: 5px;"><span style="color: black;">■</span> Charlied</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: blue;">■</span> Dewatering</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: pruple;">■</span> Escort</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: red;">■</span> Firefighting</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: sienna;">■</span> Freed from Aground</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: darkgreen;">■</span> Fuel/Oil Transfer</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: cyan;">■</span> In Water Rescue</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: slateblue;">■</span> Information/Advice</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: yellow;">■</span> Jump Start</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: mediumspringgreen;">■</span> Medical</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: goldenrod;">■</span> Parbuckling</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: steelblue;">■</span> Repaired</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: violet;">■</span> Search</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: tomato;">■</span> Tow</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: midnightblue;">■</span> Transport</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: deeppink;">■</span> Other</div>',
+  '</div>'
+)
+
+nod_legend <- paste(
+  '<div style="background-color: white; padding: 10px; border-radius: 5px;">',
+  '<h4>Legend</h4>',
+  '<div style="margin-bottom: 5px;"><span style="color: sienna;">■</span> Aground</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: black;">■</span> Bridge Jumper</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: midnightblue;">■</span> Capsized</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: darkgreen;">■</span> Disabled</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: red;">■</span> Fire</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: steelblue;">■</span> Flare</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: mediumspringgreen;">■</span> Medical</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: violet;">■</span> No Distress (Good Intent / Hoax)</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: tomato;">■</span> Outside SOPs</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: slateblue;">■</span> Overdue</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: goldenrod;">■</span> Parbuckling</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: cyan;">■</span> PIW</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: blue;">■</span> Taking on Water</div>',
+  '<div style="margin-bottom: 5px;"><span style="color: deeppink;">■</span> Other</div>',
+  '</div>'
+)

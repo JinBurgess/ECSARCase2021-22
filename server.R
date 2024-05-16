@@ -10,7 +10,7 @@ library(shinyjs)
 library(forcats)
 library(rgeos)
 library(readr)
-library(rgdal)
+# library(rgdal)
 library(networkD3)
 
 shinyServer(function(input, output, session) {
@@ -23,11 +23,14 @@ shinyServer(function(input, output, session) {
   Lat <- reactiveVal(NULL)
   Lng <- reactiveVal(NULL)
   
+  # overview ---------------------------------------------------------------------------------------------
+  output$overview.content <- renderUI({
+    team_overview
+  })
   # dataset ---------------------------------------------------------------------------------------------
   
   # determines if the user has uploaded any data into the system 
   dataFileUpload <- reactive({
-    view(missingDF())
     df <- caseFiles()%>%
       select("case", "date", "rlocation", "Latitude", "Longitude", "nod", "psol", "ssol", "ict")
     colnames(df) <- c("Case ID", "Date", "Relative Location", "Latitude", "Longitude", "Nature of Distress", 
@@ -69,23 +72,40 @@ shinyServer(function(input, output, session) {
   setActiveButton <- function(btn) {
     if (btn == "assistancerendered") {
       activeButton("assistancerendered")
-      shinyjs::addClass(selector = "#assistancerendered", class = "active-button")
+      shinyjs::removeClass(selector = "#stats", class = "active-button")
       shinyjs::removeClass(selector = "#general", class = "active-button")
+      shinyjs::removeClass(selector = "#infopage", class = "active-button")
+      
+      shinyjs::addClass(selector = "#assistancerendered", class = "active-button")
       shinyjs::addClass(selector = "#general", class = "reserve-button")
-      shinyjs::addClass(selector = "#page4", class = "reserve-button")
+      shinyjs::addClass(selector = "#infopage", class = "reserve-button")
     } else if (btn == "general") {
       activeButton("general")
+      shinyjs::removeClass(selector = "#stats", class = "active-button")
+      shinyjs::removeClass(selector = "#assistancerendered", class = "active-button")
+      shinyjs::removeClass(selector = "#infopage", class = "active-button")
+      
       shinyjs::addClass(selector = "#general", class = "active-button")
       shinyjs::removeClass(selector = "#assistancerendered", class = "active-button")
       shinyjs::addClass(selector = "#assistancerendered", class = "reserve-button")
-      shinyjs::addClass(selector = "#page4", class = "reserve-button")
+      shinyjs::addClass(selector = "#infopage", class = "reserve-button")
     } else if (btn == "stats") {
+      activeButton("stats")
+      shinyjs::removeClass(selector = "#assistancerendered", class = "active-button")
+      shinyjs::removeClass(selector = "#general", class = "active-button")
+      shinyjs::removeClass(selector = "#infopage", class = "active-button")
+      
       shinyjs::addClass(selector = "#stats", class = "active-button")
       shinyjs::addClass(selector = "#assistancerendered", class = "reserve-button")
       shinyjs::addClass(selector = "#general", class = "reserve-button")
-      shinyjs::addClass(selector = "#page4", class = "reserve-button")
-    } else if (btn == "page4") {
-      shinyjs::addClass(selector = "#page4", class = "active-button")
+      shinyjs::addClass(selector = "#infopage", class = "reserve-button")
+    } else if (btn == "infopage") {
+      activeButton("infopage")
+      shinyjs::removeClass(selector = "#assistancerendered", class = "active-button")
+      shinyjs::removeClass(selector = "#general", class = "active-button")
+      shinyjs::removeClass(selector = "#stats", class = "active-button")
+      
+      shinyjs::addClass(selector = "#infopage", class = "active-button")
       shinyjs::addClass(selector = "#assistancerendered", class = "reserve-button")
       shinyjs::addClass(selector = "#general", class = "reserve-button")
       shinyjs::addClass(selector = "#stats", class = "reserve-button")
@@ -95,6 +115,7 @@ shinyServer(function(input, output, session) {
   observeEvent(input$assistancerendered, {
     setActiveButton("assistancerendered")
   })
+  
   
   observeEvent(c(input$general, input$datefilter), {
     setActiveButton("general")
@@ -139,6 +160,14 @@ shinyServer(function(input, output, session) {
     })
   })
   
+  observeEvent(input$stats, {
+    setActiveButton("stats")
+  })
+  
+  observeEvent(input$infopage, {
+    setActiveButton("infopage")
+  })
+  
   output$sangraph <- renderPlotly({
     links <- sankeynet(caseFiles())
     nodes <- data.frame(name = c(as.character(links$nod), as.character(links$psol)) %>% unique())
@@ -159,15 +188,67 @@ shinyServer(function(input, output, session) {
         target = links$IDsol,
         value = links$value
       )
-    )
+    )%>%
+      layout(title = "Case Progression from Nature of Distress to Solution")
   })
   
-  observeEvent(c(input$assistancerendered, input$general), {
+  observeEvent(c(input$ecolecrews,input$summercrew, input$statcaseRange), {
+    
+    selected_dates <- input$statcaseRange
+    if (!is.null(input$ecolecrews) && input$ecolecrews %in% c("A1", "A2", "B1", "B2", "C1", "C2")){
+      reduced <- crewdf(caseFiles(), input$ecolecrews, input$summercrew, selected_dates[1], selected_dates[2])
+      
+      CaseType <- caseType(reduced)
+      CaseCharlied <- caseCharlied(reduced)
+      
+      active_sum <- sum(CaseCharlied$total[CaseCharlied$psol_lmp == "Active"], na.rm = TRUE)
+      charlie_sum <- sum(CaseCharlied$total, na.rm = TRUE)
+      
+      
+      output$donutCaseType <- renderPlotly({
+        plot_ly(data = CaseType, type = "pie", labels = ~nod, values = ~total,
+                textinfo = "label+percent", hole = 0.4,
+                marker = list(colors = ~nodcolors)) %>%
+          layout(title = "Types of Cases",
+                 showlegend = FALSE)  # Remove the legend
+      })
+      
+      output$donutCaseCharlied <- renderPlotly({
+        plot_ly(data = CaseCharlied, type = "pie", labels = ~psol_lmp, values = ~total,
+                textinfo = "label+percent", hole = 0.4,
+                marker = list(colors = ~psolcolors)) %>%
+          layout(title = "Odds of Rendering Assistance",
+                 showlegend = FALSE)  # Remove the legend
+      })
+      
+      output$propStats <- renderText({
+        HTML(sprintf("<div style='text-align: center;'><span style='font-size: 20px;'>%s : %s</span>", nrow(reduced), totalObservations))
+      })
+      
+      output$propStats2 <- renderText({
+        HTML(sprintf("<div style='text-align: center;'><span style='font-size: 20px;'>%s : %s</span>", active_sum, charlie_sum))
+      })
+      # paste("For", input$ecolecrews, "you have the possibility of being on ", nrow(reduced),"cased out of" , totalObservations)})
+    } else{
+      output$propStats <- renderText({
+        "Select Crew"})
+    }
+  })
+  
+  output$infopage.content <- renderUI({
+    analysis_review
+  })
+  observeEvent(c(input$assistancerendered, input$general, input$stats, input$infopage), {
     output$plot <- renderUI({
       if (!is.null(activeButton())) {
         if (activeButton() == "assistancerendered") {
           fluidRow(
-            column(width = 11, plotlyOutput("sangraph", width = "100%",  height = 650))
+            tags$head(
+              tags$style(
+                HTML(".offset-box { margin-left: 50px; margin-top: 50px;}")
+              )
+            ),
+            div(class = "offset-box", column(width = 11, plotlyOutput("sangraph", width = "100%",  height = 650)))
           )
         } else if (activeButton() == "general") {
           fluidRow(
@@ -180,7 +261,7 @@ shinyServer(function(input, output, session) {
                                               label = "Choose a range:", 
                                               force_edges = TRUE, grid = TRUE,
                                               choices = month_labels,
-                                              selected = month_labels[c(1, 13)] # Default selection (e.g., July 2021 and August 2022)
+                                              selected = month_labels[c(1, 13)]
                               ))
                      ),
                      fluidRow(
@@ -193,18 +274,64 @@ shinyServer(function(input, output, session) {
                        column(width = 2, tableOutput("topTIME")),
                        column(width = 2, tableOutput("topDAY"))
                      )
-            ) # fluidRow
-          )
+            ) # tags$div closing
+          ) # fluidRow closing
+        } else if (activeButton() == "stats"){
+          fluidRow( 
+            box(width = 2, 
+                pickerInput(inputId = 'ecolecrews',
+                            label = "Select General Crew",
+                            choices = c("A1", "A2", "B1", "B2", "C1", "C2"),
+                            options = list(`actions-box` = TRUE),
+                            multiple = FALSE, 
+                            selected = "A1")),
+            box(width = 2,
+                pickerInput(inputId = "summercrew",
+                            label = "Select Summer Crew?", 
+                            choices = c("port", "starboard", 'none'),
+                            options = list(`actions-box` = TRUE),
+                            multiple = FALSE, 
+                            selected = "none")
+            ),
+            box(width = 7, 
+                sliderTextInput(width = "100%", 
+                                inputId = "statcaseRange",
+                                label = "Choose Date Range:", 
+                                force_edges = TRUE, grid = TRUE,
+                                choices = alldates,
+                                selected = alldates[c(1, 377)]
+                )
+            ),
+            fluidRow(width =12,
+                     column(width = 6, title = tags$div("Possible Cases During Your Rotation", style = "text-align: center;"), 
+                            plotlyOutput('donutCaseType', height = 575)),
+                     column(width = 5, title = tags$div("Possible Case Response", style = "text-align: center;"), 
+                            plotlyOutput('donutCaseCharlied', height = 575)),
+            ),
+            fluidRow(width =12,
+                     box(width = 6, title = tags$div("Minimum Possible Cases in Year", style = "text-align: center;"), htmlOutput('propStats')),
+                     box(width = 5, title = tags$div("Probability of Assisting", style = "text-align: center;"), htmlOutput('propStats2'))
+                     
+            )
+          ) # fluidRow closing
+        } else if (activeButton() == "infopage"){
+          fluidRow(width = 12, 
+                   column(width = 10, offset = 1, htmlOutput("infopage.content")))
         }
-      } else {
-        HTML("This page will allow you to look at some Case Stats for the year 2021-2022")
       }
     })
   })
   
   
-  # EC-SAR Cases---------------------------------------------------------------------------------------------
   
+  # EC-SAR Cases---------------------------------------------------------------------------------------------
+  output$nodLegend <- renderText({
+    nod_legend
+  })
+  
+  output$psolLegend <- renderText({
+    psol_legend
+  })
   # code to create the interactive map
   output$ECSARCasesDistress <- renderLeaflet({
     
@@ -335,6 +462,10 @@ shinyServer(function(input, output, session) {
   rv_location <- reactiveValues(id = NULL, lat=NULL, lng=NULL)
   
   output$uiLat <- renderText({
+    if(is.null(missingDF())){
+      "No cases have a cooresponding GPS position and can be seen in Plotting Case."  # Adjusted this line to use single string indexing
+      
+    }
     if (!is.null(rv_location$lat)) {
       HTML(paste('latitude :', rv_location$lat))
     } else {
@@ -385,39 +516,48 @@ shinyServer(function(input, output, session) {
     }
   })
   
-  # Add logging statements
-  observeEvent(input$savePoint, {
-    
-    # Check if all required inputs are available
-    req(input$genLoc[1])
-    req(isolate(rv_location$lat))
-    req(isolate(rv_location$lng))
-    
-    # Remove the row from the missingDF because we have already found its GPS position
-    tempMissingDF <- filter(missingDF(), rlocation != input$genLoc[1])
-    newObservation <- filter(missingDF(), rlocation == input$genLoc[1])%>%
-      mutate(Latitude = isolate(rv_location$lat),
-             Longitude = isolate(rv_location$lng))
-    
-    # Add the GPS position of the relative position to the dataBase
-    newData <- data.frame(
-      RLocation = isolate(input$genLoc[1]),
-      Latitude = isolate(rv_location$lat),
-      Longitude = isolate(rv_location$lng)
-    )
-    
-    dataBaseUpdated <- rbind(newData, dataBase())
-    
-    # Update the missingDF
-    write.csv(tempMissingDF, file = 'missingDF.csv', row.names = FALSE)
-    write.csv(dataBaseUpdated, 'RLocationLatLongs.csv', row.names = FALSE)
-    
-    missingDF(tempMissingDF)
-    updatedDF <- rbind(caseFiles(), newObservation)%>%
-      arrange(date)
-    caseFiles(updatedDF)
-    
-    
-    return(dataBaseUpdated)
+  observe({
+    if(is.null(missingDF())){
+      disable("savePoint")
+    } else{
+      enable("savePoint")
+      
+      # Add logging statements
+      observeEvent(input$savePoint, {
+        
+        # Check if all required inputs are available
+        req(input$genLoc[1])
+        req(isolate(rv_location$lat))
+        req(isolate(rv_location$lng))
+        
+        # Remove the row from the missingDF because we have already found its GPS position
+        tempMissingDF <- filter(missingDF(), rlocation != input$genLoc[1])
+        newObservation <- filter(missingDF(), rlocation == input$genLoc[1])%>%
+          mutate(Latitude = isolate(rv_location$lat),
+                 Longitude = isolate(rv_location$lng))
+        
+        # Add the GPS position of the relative position to the dataBase
+        newData <- data.frame(
+          RLocation = isolate(input$genLoc[1]),
+          Latitude = isolate(rv_location$lat),
+          Longitude = isolate(rv_location$lng)
+        )
+        
+        dataBaseUpdated <- rbind(newData, dataBase())
+        
+        # Update the missingDF
+        write.csv(tempMissingDF, file = 'missingDF.csv', row.names = FALSE)
+        write.csv(dataBaseUpdated, 'RLocationLatLongs.csv', row.names = FALSE)
+        
+        missingDF(tempMissingDF)
+        updatedDF <- rbind(caseFiles(), newObservation)%>%
+          arrange(date)
+        caseFiles(updatedDF)
+        
+        
+        return(dataBaseUpdated)
+      })
+      
+    }
   })
 })
