@@ -136,13 +136,17 @@ shinyServer(function(input, output, session) {
     }
     # Render the overtime plot
     output$overTime <- renderPlotly({
-      # Plot the count of cases per day over time
-      plot <- ggplot(caseCount(), aes(x = date, y = total)) +
-        geom_col() +
-        scale_y_continuous(breaks = seq(0, 10, by = 1)) +
-        theme_minimal()
-      
-      ggplotly(plot)
+      plot_ly(caseCount(), x = ~date, y = ~total, type = 'bar', marker = list(color = '#212d40')) %>%
+        layout(
+          yaxis = list(
+            title = 'Total',
+            tickmode = 'linear',
+            tick0 = 0,
+            dtick = 1
+          ),
+          title = 'Total Case per Day',
+          template = 'plotly_white'
+        )
     })
     
     output$topNOD <- renderTable({
@@ -209,7 +213,7 @@ shinyServer(function(input, output, session) {
         plot_ly(data = CaseType, type = "pie", labels = ~nod, values = ~total,
                 textinfo = "label+percent", hole = 0.4,
                 marker = list(colors = ~nodcolors)) %>%
-          layout(title = "Types of Cases",
+          layout(title = "Possible Types of Cases Called For",
                  showlegend = FALSE)  # Remove the legend
       })
       
@@ -217,16 +221,16 @@ shinyServer(function(input, output, session) {
         plot_ly(data = CaseCharlied, type = "pie", labels = ~psol_lmp, values = ~total,
                 textinfo = "label+percent", hole = 0.4,
                 marker = list(colors = ~psolcolors)) %>%
-          layout(title = "Odds of Rendering Assistance",
+          layout(title = "Probability of Rendering Assistance",
                  showlegend = FALSE)  # Remove the legend
       })
       
       output$propStats <- renderText({
-        HTML(sprintf("<div style='text-align: center;'><span style='font-size: 20px;'>%s : %s</span>", nrow(reduced), totalObservations))
+        HTML(sprintf("<div style='text-align: center;'><span style='font-size: 20px;'>%s possible case out of %s total cases </span>", nrow(reduced), totalObservations))
       })
       
       output$propStats2 <- renderText({
-        HTML(sprintf("<div style='text-align: center;'><span style='font-size: 20px;'>%s : %s</span>", active_sum, charlie_sum))
+        HTML(sprintf("<div style='text-align: center;'><span style='font-size: 20px;'>%s active cases out of %s total possible cases</span>", active_sum, charlie_sum))
       })
       # paste("For", input$ecolecrews, "you have the possibility of being on ", nrow(reduced),"cased out of" , totalObservations)})
     } else{

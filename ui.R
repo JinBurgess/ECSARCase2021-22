@@ -154,7 +154,7 @@ shinyUI(
                             actionButton("savePoint", label = "Finalize Coordinates")
                             
                ),
-               mainPanel(width = 9, 
+               mainPanel(width = 9,
                          div(style = "height: 715; border: 2px solid black; padding: 5px;",
                              # div(style = "border: 2px solid black; padding: 5px;",
                              leafletOutput("clickMap", height = 700))

@@ -5,7 +5,7 @@ account: jinyuhanprojects
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 12001401
-bundleId: 8621995
+bundleId: 8625885
 url: https://jinyuhanprojects.shinyapps.io/ECSARCase2021-22/
 version: 1
 asMultiple: FALSE
